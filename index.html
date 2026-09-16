@@ -55,9 +55,10 @@
   }
   #overlayLabel{
     position:absolute; left:50%; bottom:138px; transform:translateX(-50%);
-    font-size:28px; font-weight:800; color:#fff; pointer-events:none; z-index:2;
-    background:rgba(0,0,0,.55); padding:2px 12px; border-radius:10px;
-    border:2px solid var(--accent); letter-spacing:1px; white-space:nowrap;
+    font-size:22px; font-weight:800; color:#fff; pointer-events:none; z-index:2;
+    background:rgba(0,0,0,.55); padding:2px 10px; border-radius:10px;
+    border:2px solid var(--accent); letter-spacing:0; white-space:nowrap;
+    max-width:92%; overflow:hidden; text-overflow:ellipsis;
   }
   #overlayLabel.leuchte{border-color:var(--accent2)}
   #overlayLabel.steckdose{border-color:var(--steck)}
@@ -154,15 +155,16 @@
   }
   #numPad.open{display:flex}
   .npValue{
-    text-align:center; font-size:28px; font-weight:800; color:var(--accent);
-    padding:4px 0 2px; letter-spacing:1px; min-height:36px;
+    text-align:center; font-size:22px; font-weight:800; color:var(--accent);
+    padding:4px 0 2px; letter-spacing:0; min-height:36px; word-break:break-all;
   }
   .npGrid{display:grid; grid-template-columns:repeat(3,1fr); gap:6px}
-  .npGrid button{
+  .npLast{display:grid; grid-template-columns:repeat(4,1fr); gap:6px}
+  .npGrid button, .npLast button{
     height:46px; border-radius:10px; border:1px solid var(--line);
     background:var(--panel2); color:var(--txt); font-size:22px; font-weight:700;
   }
-  .npGrid button:active{background:var(--accent); color:#111}
+  .npGrid button:active, .npLast button:active{background:var(--accent); color:#111}
   #npDone{
     height:44px; border-radius:10px; border:0; background:var(--accent);
     color:#111; font-size:16px; font-weight:800;
@@ -173,7 +175,7 @@
     #overlayLabel{font-size:22px; bottom:122px}
     .shoot{width:52px; height:52px}
     .hudBottom{padding-top:16px}
-    .npGrid button{height:40px; font-size:18px}
+    .npGrid button, .npLast button{height:40px; font-size:18px}
   }
 
   /* Galerie */
@@ -295,7 +297,12 @@
           <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
           <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button>
           <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button>
-          <button data-key="-">−</button><button data-key="0">0</button><button data-key="back">⌫</button>
+        </div>
+        <div class="npLast">
+          <button data-key=".">.</button>
+          <button data-key="0">0</button>
+          <button data-key="-">−</button>
+          <button data-key="back">⌫</button>
         </div>
         <button id="npDone">Fertig</button>
       </div>
@@ -455,10 +462,37 @@ function loadSettings(){
   }catch(e){}
 }
 
+function splitNum(s){
+  s=String(s||"").trim();
+  const m=s.match(/^(?:(\d+(?:\.\d+)*)\.)?(\d+)$/);
+  if(!m) return null;
+  return {prefix:m[1]!=null?m[1]+".":"", n:parseInt(m[2],10)};
+}
+function parseLabel(v){
+  v=String(v||"").trim();
+  if(!v) return null;
+  const parts=v.split(/\s*[-–]\s*/);
+  if(parts.length>=2 && parts[0] && parts[1]){
+    const a=splitNum(parts[0]);
+    let b=splitNum(parts[1]);
+    if(!a||!b) return null;
+    if(!b.prefix && a.prefix) b={prefix:a.prefix, n:b.n};
+    return {range:true, prefix:a.prefix, a:a.n, b:b.n};
+  }
+  const one=splitNum(v);
+  if(!one) return null;
+  return {range:false, prefix:one.prefix, a:one.n, b:one.n};
+}
+function fmtRange(prefix,a,b){
+  return prefix+a+" - "+prefix+b;
+}
+function fmtOne(prefix,n){ return prefix+String(n); }
+
 function updateOverlay(){
   const v=numInput.value.trim();
   overlayLabel.textContent=KIND_SHORT[currentKind]+" "+(v||"–");
   overlayLabel.className=KIND_CLS[currentKind]||"";
+  overlayLabel.style.fontSize=v.length>16?"15px":v.length>10?"18px":"22px";
   const ort=ortInput.value.trim();
   overlayOrt.textContent=ort;
   overlayOrt.style.display=ort?"block":"none";
@@ -469,17 +503,15 @@ function updateOverlay(){
 }
 
 function incInput(delta, asGroup){
-  let v=numInput.value.trim();
-  const m=v.match(/^(\d+)\s*-\s*(\d+)$/);
-  if(m){
-    let a=parseInt(m[1],10), b=parseInt(m[2],10), span=b-a;
+  const p=parseLabel(numInput.value);
+  if(!p){ updateOverlay(); return; }
+  if(p.range){
+    const span=p.b-p.a;
     const step=asGroup ? (span+1)*Math.sign(delta||1)*Math.abs(delta) : delta;
-    a=Math.max(0,a+step); b=a+span;
-    numInput.value=a+"-"+b;
+    const a=Math.max(0,p.a+step);
+    numInput.value=fmtRange(p.prefix,a,a+span);
   }else{
-    const n=parseInt(v,10);
-    if(!isNaN(n)) numInput.value=String(Math.max(0,n+delta));
-    else numInput.value="1";
+    numInput.value=fmtOne(p.prefix, Math.max(0,p.a+delta));
   }
   updateOverlay();
 }
@@ -488,7 +520,13 @@ document.getElementById("plus").onclick=()=>incInput(1);
 document.getElementById("minus").onclick=()=>incInput(-1);
 ortInput.addEventListener("input",updateOverlay);
 document.querySelectorAll(".quick [data-range]").forEach(b=>{
-  b.onclick=()=>{numInput.value=b.dataset.range; updateOverlay()};
+  b.onclick=()=>{
+    const [from,to]=b.dataset.range.split("-").map(n=>parseInt(n,10));
+    const p=parseLabel(numInput.value);
+    const prefix=p?p.prefix:"";
+    numInput.value=fmtRange(prefix, from, to);
+    updateOverlay();
+  };
 });
 
 const camWrap=document.getElementById("camWrap");
@@ -510,13 +548,17 @@ function closeNumPad(){
 function typeNum(key){
   if(key==="back"){
     if(replaceNext){ numInput.value=""; replaceNext=false; }
-    else numInput.value=numInput.value.slice(0,-1);
-  }else if(key==="-"){
-    if(replaceNext){ replaceNext=false; }
-    if(!numInput.value.includes("-") && numInput.value.length) numInput.value+="-";
+    else numInput.value=numInput.value.replace(/ - $/,"-").slice(0,-1);
+  }else if(key==="-" || key==="."){
+    if(replaceNext) replaceNext=false;
+    const v=numInput.value;
+    if(!v.length) return updateOverlay();
+    if(key==="-" && /[-–]/.test(v)) return updateOverlay();
+    if(key==="." && /[-.]$/.test(v)) return updateOverlay();
+    numInput.value+=key;
   }else{
     if(replaceNext){ numInput.value=key; replaceNext=false; }
-    else if(numInput.value.length<11) numInput.value+=key;
+    else if(numInput.value.length<28) numInput.value+=key;
   }
   updateOverlay();
 }
@@ -526,11 +568,10 @@ numPad.querySelectorAll("[data-key]").forEach(b=>{
 });
 document.getElementById("npDone").onclick=closeNumPad;
 document.getElementById("rangeMode").onclick=()=>{
-  let v=numInput.value.trim();
-  const m=v.match(/^(\d+)\s*-\s*(\d+)$/);
-  const n=parseInt(m?String(parseInt(m[2],10)+1):v,10);
-  const start=isNaN(n)?1:n;
-  numInput.value=start+"-"+(start+4);
+  const p=parseLabel(numInput.value);
+  if(!p){ numInput.value="1 - 5"; updateOverlay(); return; }
+  const start=p.range?p.b+1:p.a;
+  numInput.value=fmtRange(p.prefix, start, start+4);
   updateOverlay();
 };
 
@@ -1042,6 +1083,7 @@ document.addEventListener("keydown", e=>{
     if(e.key>="0" && e.key<="9") { e.preventDefault(); typeNum(e.key); }
     else if(e.key==="Backspace") { e.preventDefault(); typeNum("back"); }
     else if(e.key==="-" || e.key==="Minus") { e.preventDefault(); typeNum("-"); }
+    else if(e.key==="." || e.key==="," || e.key==="Decimal") { e.preventDefault(); typeNum("."); }
     else if(e.key==="Enter" || e.key==="Escape") { e.preventDefault(); closeNumPad(); }
     return;
   }

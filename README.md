@@ -6,7 +6,7 @@ Kleine Web-App für den Campus-Rundgang. Du fotografierst Leuchten, Steckdosen o
 
 - Kamera-Ansicht ohne Scrollen: Sucher und Bedienung passen auf eine Handy-Seite
 - Foto mit der Handykamera aufnehmen
-- Nummer über ein Zahlenfeld eingeben (öffnet sich direkt beim Tippen), einzeln (z. B. 7) oder als Bereich (z. B. 1-5)
+- Nummer über ein Zahlenfeld eingeben (öffnet sich direkt beim Tippen). Format wie in der Leuchtenliste: `46.1.3` oder Bereich `46.1.3 - 46.1.7`. Punkt und Bindestrich sind auf dem Zahlenfeld.
 - Nummer wird direkt ins Bild gebrannt
 - Nummer steht auch im Dateinamen, z. B. `GebaeudeA_Leuchte_1-5_20260916_142530.jpg`
 - Umschalten zwischen Leuchte, Steckdose und Verteilung (jeweils eigene Nummer)
@@ -31,7 +31,7 @@ Kleine Web-App für den Campus-Rundgang. Du fotografierst Leuchten, Steckdosen o
 ## Bedienung
 
 - Oben Leuchte, Steckdose oder Verteilung wählen.
-- Auf das Nummernfeld tippen: das Zahlenfeld öffnet sich. Bereiche gehen mit − oder den Schnellknöpfen.
+- Auf das Nummernfeld tippen: das Zahlenfeld öffnet sich (Ziffern, Punkt, Bereich mit −). +/− zählt den letzten Teil weiter, z. B. `46.1.3` → `46.1.4`.
 - Auf den grossen weissen Knopf tippen: Foto wird aufgenommen und gespeichert.
 - Reiter Galerie zeigt alle Fotos. Tippe ein Foto an zum Ansehen, Speichern, Teilen oder Löschen.
 
