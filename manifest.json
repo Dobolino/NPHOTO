@@ -1,7 +1,7 @@
 {
   "name": "Leuchten Rundgang",
   "short_name": "Rundgang",
-  "description": "Fotos von Leuchten und Steckdosen mit Nummer beschriften",
+  "description": "Fotos von Leuchten, Steckdosen und Verteilungen mit Nummer beschriften",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "portrait",

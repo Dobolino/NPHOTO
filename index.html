@@ -5,98 +5,191 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#111418">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rundgang">
 <link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
 <title>Leuchten Rundgang</title>
 <style>
   :root{
     --bg:#111418; --panel:#1b2027; --panel2:#232a33; --line:#333c47;
     --txt:#eef2f6; --muted:#9aa7b4; --accent:#ffcc00; --accent2:#2d7dff;
-    --danger:#ff4d4f; --ok:#37c871;
+    --danger:#ff4d4f; --ok:#37c871; --steck:#8a5cff; --vert:#37c871;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
-  html,body{margin:0; height:100%}
+  html,body{margin:0; height:100%; height:100dvh; overflow:hidden; overscroll-behavior:none}
   body{
     background:var(--bg); color:var(--txt);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    display:flex; flex-direction:column; min-height:100dvh;
-    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    display:flex; flex-direction:column;
+    position:fixed; inset:0; width:100%;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+    touch-action:manipulation;
   }
+  button{font-family:inherit; color:inherit}
   header{
-    display:flex; align-items:center; gap:10px; padding:12px 16px;
-    border-bottom:1px solid var(--line); background:var(--panel);
+    display:flex; align-items:center; gap:8px; padding:6px 10px;
+    border-bottom:1px solid var(--line); background:var(--panel); flex:none;
   }
-  header h1{font-size:17px; margin:0; font-weight:600; flex:1}
+  header h1{font-size:15px; margin:0; font-weight:600; flex:1}
   .tabs{display:flex; gap:6px}
   .tab{
     border:1px solid var(--line); background:var(--panel2); color:var(--muted);
-    padding:8px 14px; border-radius:20px; font-size:14px; font-weight:600;
+    padding:6px 11px; border-radius:16px; font-size:13px; font-weight:600;
   }
   .tab.active{background:var(--accent); color:#111; border-color:var(--accent)}
-  main{flex:1; overflow-y:auto; position:relative}
-  .view{display:none; height:100%}
-  .view.active{display:block}
+  main{flex:1; min-height:0; overflow:hidden; display:flex; flex-direction:column}
+  .view{display:none; flex:1; min-height:0; overflow:hidden; flex-direction:column}
+  .view.active{display:flex}
 
-  /* Kamera */
-  #camWrap{position:relative; width:100%; background:#000; aspect-ratio:3/4; max-height:70dvh; overflow:hidden}
-  #video{width:100%; height:100%; object-fit:cover; display:block}
-  #camOverlay{
-    position:absolute; inset:0; display:flex; align-items:flex-end; justify-content:center;
-    pointer-events:none;
+  /* Kamera: Sucher füllt den Screen, Steuerung liegt drauf */
+  #camWrap{position:relative; flex:1; min-height:0; background:#000; overflow:hidden}
+  #video{width:100%; height:100%; object-fit:cover; display:block; transform-origin:center center}
+  #overlayOrt{
+    display:none; position:absolute; left:10px; top:88px; z-index:2;
+    font-size:12px; font-weight:700; color:#fff;
+    background:rgba(0,0,0,.5); padding:2px 8px; border-radius:8px;
+    max-width:70%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
   #overlayLabel{
-    margin-bottom:14px; font-size:44px; font-weight:800; color:#fff;
-    background:rgba(0,0,0,.55); padding:4px 16px; border-radius:12px;
-    border:2px solid var(--accent); letter-spacing:1px;
+    position:absolute; left:50%; bottom:138px; transform:translateX(-50%);
+    font-size:28px; font-weight:800; color:#fff; pointer-events:none; z-index:2;
+    background:rgba(0,0,0,.55); padding:2px 12px; border-radius:10px;
+    border:2px solid var(--accent); letter-spacing:1px; white-space:nowrap;
   }
+  #overlayLabel.leuchte{border-color:var(--accent2)}
+  #overlayLabel.steckdose{border-color:var(--steck)}
+  #overlayLabel.verteilung{border-color:var(--vert)}
   #camError{
     position:absolute; inset:0; display:none; align-items:center; justify-content:center;
-    text-align:center; padding:24px; color:var(--muted); font-size:14px;
+    text-align:center; padding:24px; color:var(--muted); font-size:14px; background:rgba(0,0,0,.65); z-index:4;
   }
-  .controls{padding:14px 16px; display:flex; flex-direction:column; gap:14px}
-  .row{display:flex; gap:10px; align-items:center}
-  .kindSel{display:flex; gap:6px; flex:1}
+  .hudTop,.hudBottom{position:absolute; left:0; right:0; z-index:3; display:flex; flex-direction:column; gap:6px}
+  .hudTop{
+    top:0; padding:8px 8px 28px;
+    background:linear-gradient(to bottom, rgba(0,0,0,.62), transparent);
+  }
+  .hudBottom{
+    bottom:0; padding:28px 8px calc(8px + env(safe-area-inset-bottom));
+    background:linear-gradient(to top, rgba(0,0,0,.78) 55%, transparent);
+  }
+  .hudRow{display:flex; gap:6px; align-items:center; flex-wrap:nowrap; min-width:0}
+  .kindSel{display:flex; gap:5px; flex:1; min-width:0}
   .kindBtn{
-    flex:1; padding:10px 4px; border-radius:12px; border:1px solid var(--line);
-    background:var(--panel2); color:var(--muted); font-size:13px; font-weight:600; white-space:nowrap;
+    flex:1; padding:7px 2px; border-radius:9px; border:1px solid rgba(255,255,255,.18);
+    background:rgba(35,42,51,.82); color:var(--muted); font-size:12px; font-weight:700; white-space:nowrap;
   }
-  .kindBtn.active{background:var(--accent2); color:#fff; border-color:var(--accent2)}
-  .numField{flex:1; display:flex; align-items:center; gap:8px; background:var(--panel2);
-    border:1px solid var(--line); border-radius:12px; padding:4px 6px}
+  .kindBtn[data-kind="Leuchte"].active{background:var(--accent2); color:#fff; border-color:var(--accent2)}
+  .kindBtn[data-kind="Steckdose"].active{background:var(--steck); color:#fff; border-color:var(--steck)}
+  .kindBtn[data-kind="Verteilung"].active{background:var(--vert); color:#083018; border-color:var(--vert)}
+  #zoomBtn{
+    width:40px; height:40px; border-radius:20px; border:1px solid rgba(255,255,255,.2);
+    background:rgba(0,0,0,.55); color:#fff; font-size:12px; font-weight:800; flex:none;
+  }
+  #ortInput{
+    flex:1; min-width:0; background:rgba(35,42,51,.82); border:1px solid rgba(255,255,255,.18);
+    border-radius:9px; color:var(--txt); font-size:13px; padding:7px 8px;
+  }
+  #ortInput:focus{outline:none; border-color:var(--accent)}
+  .numField{flex:1; display:flex; align-items:center; min-width:0; background:rgba(35,42,51,.88);
+    border:1px solid rgba(255,255,255,.18); border-radius:10px; padding:0 2px 0 0}
   .numField input{
     flex:1; background:transparent; border:0; color:var(--txt);
-    font-size:22px; font-weight:700; text-align:center; padding:8px; min-width:0;
+    font-size:18px; font-weight:700; text-align:center; padding:6px 2px; min-width:0;
   }
   .numField input:focus{outline:none}
-  .stepBtn{
-    width:44px; height:44px; border-radius:10px; border:1px solid var(--line);
-    background:var(--panel); color:var(--txt); font-size:24px; font-weight:700; flex:none;
+  .numField .clearBtn{
+    width:28px; height:28px; border:0; background:transparent; color:var(--muted); font-size:16px; flex:none;
   }
-  label.hint{font-size:12px; color:var(--muted); margin-bottom:-6px}
-  .toggle{display:flex; align-items:center; gap:8px; font-size:14px; color:var(--muted)}
-  .toggle input{width:20px; height:20px; accent-color:var(--accent)}
-  .gpsStatus{margin-left:auto; font-size:12px; font-weight:600; padding:2px 8px; border-radius:8px; background:var(--panel2); border:1px solid var(--line)}
-  .gpsStatus.ok{color:var(--ok); border-color:var(--ok)}
-  .gpsStatus.wait{color:var(--accent)}
-  .gpsStatus.err{color:var(--danger); border-color:var(--danger)}
-  .shootRow{display:flex; align-items:center; gap:16px; justify-content:center}
+  .stepBtn{
+    width:36px; height:36px; border-radius:9px; border:1px solid rgba(255,255,255,.18);
+    background:rgba(35,42,51,.88); color:var(--txt); font-size:20px; font-weight:700; flex:none;
+  }
+  .chip{
+    padding:6px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.18);
+    background:rgba(35,42,51,.88); color:var(--muted); font-size:11px; font-weight:700; white-space:nowrap;
+  }
+  .chip.on{background:var(--accent); color:#111; border-color:var(--accent)}
+  .chip.ok{color:var(--ok); border-color:var(--ok)}
+  .chip.wait{color:var(--accent)}
+  .chip.err{color:var(--danger); border-color:var(--danger)}
+  .quick{display:flex; gap:4px; flex:none}
+  .quick button{
+    padding:6px 7px; border-radius:8px; border:1px solid rgba(255,255,255,.18);
+    background:rgba(35,42,51,.88); color:var(--txt); font-size:11px; font-weight:700; white-space:nowrap;
+  }
+  .shootRow{display:flex; align-items:center; justify-content:space-between; gap:6px}
+  .sideBtns{display:flex; gap:6px; align-items:center; min-width:0}
+  .iconBtn{
+    width:40px; height:40px; border-radius:50%; border:1px solid rgba(255,255,255,.18);
+    background:rgba(35,42,51,.88); color:var(--txt); font-size:16px; flex:none;
+  }
+  .iconBtn.on{background:var(--accent); color:#111; border-color:var(--accent)}
+  .iconBtn:disabled{opacity:.35}
+  .lastThumb{
+    width:40px; height:40px; border-radius:9px; border:1px solid rgba(255,255,255,.18);
+    background:rgba(35,42,51,.88); overflow:hidden; padding:0; position:relative; flex:none;
+  }
+  .lastThumb img{width:100%; height:100%; object-fit:cover; display:block}
+  .lastThumb .undo{
+    position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.55); color:#fff; font-size:16px; font-weight:800;
+  }
+  .lastThumb.can-undo .undo{display:flex}
   .shoot{
-    width:74px; height:74px; border-radius:50%; border:5px solid var(--accent);
+    width:62px; height:62px; border-radius:50%; border:4px solid var(--accent);
     background:#fff; flex:none;
   }
   .shoot:active{transform:scale(.94)}
-  .flipBtn,.rangeBtn{
-    width:52px; height:52px; border-radius:50%; border:1px solid var(--line);
-    background:var(--panel2); color:var(--txt); font-size:20px; flex:none;
+  .shoot:disabled{opacity:.5}
+  .numField.editing{border-color:var(--accent)}
+  #numPad{
+    position:absolute; left:0; right:0; bottom:0; z-index:6;
+    display:none; flex-direction:column; gap:6px;
+    padding:10px 10px calc(10px + env(safe-area-inset-bottom));
+    background:rgba(17,20,24,.96);
+    border-top:1px solid var(--line);
   }
-  .quick{display:flex; gap:8px; flex-wrap:wrap}
-  .quick button{
-    padding:8px 12px; border-radius:10px; border:1px solid var(--line);
-    background:var(--panel2); color:var(--txt); font-size:13px;
+  #numPad.open{display:flex}
+  .npValue{
+    text-align:center; font-size:28px; font-weight:800; color:var(--accent);
+    padding:4px 0 2px; letter-spacing:1px; min-height:36px;
+  }
+  .npGrid{display:grid; grid-template-columns:repeat(3,1fr); gap:6px}
+  .npGrid button{
+    height:46px; border-radius:10px; border:1px solid var(--line);
+    background:var(--panel2); color:var(--txt); font-size:22px; font-weight:700;
+  }
+  .npGrid button:active{background:var(--accent); color:#111}
+  #npDone{
+    height:44px; border-radius:10px; border:0; background:var(--accent);
+    color:#111; font-size:16px; font-weight:800;
+  }
+  #camWrap.pad-open .hudBottom{visibility:hidden}
+  #camWrap.pad-open #overlayLabel{bottom:auto; top:46%}
+  @media (max-height:640px){
+    #overlayLabel{font-size:22px; bottom:122px}
+    .shoot{width:52px; height:52px}
+    .hudBottom{padding-top:16px}
+    .npGrid button{height:40px; font-size:18px}
   }
 
   /* Galerie */
-  #gallery{padding:12px; display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:10px}
+  .galBar{display:flex; gap:8px; padding:10px 12px; border-bottom:1px solid var(--line);
+    background:var(--panel); flex:none; flex-wrap:wrap}
+  .galBar button{flex:1; min-width:90px; padding:9px; border-radius:10px; border:1px solid var(--line);
+    background:var(--panel2); color:var(--txt); font-size:13px; font-weight:600}
+  .galBar .count{flex:none; align-self:center; color:var(--muted); font-size:12px; padding:0 4px}
+  .filters{display:flex; gap:6px; padding:8px 12px 0; flex:none; overflow-x:auto}
+  .filters button{
+    flex:none; padding:6px 12px; border-radius:999px; border:1px solid var(--line);
+    background:var(--panel2); color:var(--muted); font-size:12px; font-weight:700;
+  }
+  .filters button.active{background:var(--accent); color:#111; border-color:var(--accent)}
+  #gallery{padding:12px; display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:10px;
+    overflow-y:auto; flex:1; min-height:0; -webkit-overflow-scrolling:touch}
   .card{background:var(--panel2); border:1px solid var(--line); border-radius:12px; overflow:hidden; position:relative}
   .card img{width:100%; aspect-ratio:3/4; object-fit:cover; display:block}
   .card .meta{padding:6px 8px; font-size:12px}
@@ -104,12 +197,8 @@
   .card .meta small{color:var(--muted); display:block}
   .badge{position:absolute; top:6px; left:6px; background:var(--accent2); color:#fff;
     font-size:10px; padding:2px 6px; border-radius:6px; font-weight:700}
-  .badge.steckdose{background:#8a5cff}
-  .badge.verteilung{background:#37c871; color:#083}
-  .galBar{display:flex; gap:8px; padding:12px; border-bottom:1px solid var(--line); background:var(--panel); position:sticky; top:0; z-index:5}
-  .galBar button{flex:1; padding:10px; border-radius:10px; border:1px solid var(--line);
-    background:var(--panel2); color:var(--txt); font-size:13px; font-weight:600}
-  .galBar .count{flex:none; align-self:center; color:var(--muted); font-size:12px; padding:0 4px}
+  .badge.steckdose{background:var(--steck)}
+  .badge.verteilung{background:var(--vert); color:#083018}
   .empty{padding:48px 24px; text-align:center; color:var(--muted); font-size:14px}
 
   /* Viewer */
@@ -121,14 +210,22 @@
   .vBar button{flex:1; padding:12px; border-radius:10px; border:0; font-size:14px; font-weight:600}
   .vClose{position:absolute; top:calc(10px + env(safe-area-inset-top)); right:14px; z-index:2;
     width:40px; height:40px; border-radius:50%; border:0; background:rgba(0,0,0,.5); color:#fff; font-size:20px}
-  .vInfo{color:#fff; text-align:center; padding:6px; font-size:14px}
+  .vNav{
+    position:absolute; top:50%; transform:translateY(-50%); z-index:2;
+    width:44px; height:64px; border:0; border-radius:12px; background:rgba(0,0,0,.4);
+    color:#fff; font-size:28px;
+  }
+  .vNav.prev{left:8px}
+  .vNav.next{right:8px}
+  .vInfo{color:#fff; text-align:center; padding:6px 12px; font-size:14px}
+  .vInfo a{color:var(--accent)}
   .btnDl{background:var(--accent); color:#111}
   .btnDel{background:var(--danger); color:#fff}
   .btnShare{background:var(--accent2); color:#fff}
   .toast{
     position:fixed; bottom:calc(20px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%);
     background:var(--ok); color:#062; padding:10px 18px; border-radius:20px; font-weight:700;
-    font-size:14px; z-index:80; opacity:0; transition:opacity .2s; pointer-events:none}
+    font-size:14px; z-index:80; opacity:0; transition:opacity .2s; pointer-events:none; max-width:90vw}
   .toast.show{opacity:1}
   .toast.err{background:var(--danger); color:#fff}
 </style>
@@ -143,71 +240,90 @@
 </header>
 
 <main>
-  <!-- KAMERA -->
   <section class="view active" id="camera">
     <div id="camWrap">
       <video id="video" playsinline muted autoplay></video>
-      <div id="camOverlay"><div id="overlayLabel">1</div></div>
+      <div id="overlayOrt"></div>
+      <div id="overlayLabel" class="leuchte">L 1</div>
       <div id="camError">Kamera nicht verfügbar. Erlaube den Kamerazugriff im Browser und lade neu. Auf dem iPhone braucht es Safari und HTTPS.</div>
-    </div>
 
-    <div class="controls">
-      <div class="kindSel">
-        <button class="kindBtn active" data-kind="Leuchte">Leuchte</button>
-        <button class="kindBtn" data-kind="Steckdose">Steckdose</button>
-        <button class="kindBtn" data-kind="Verteilung">Verteilung</button>
-      </div>
-
-      <label class="hint">Nummer oder Bereich (z. B. 7 oder 1-5)</label>
-      <div class="row">
-        <button class="stepBtn" id="minus">−</button>
-        <div class="numField">
-          <input id="numInput" type="text" inputmode="text" value="1" autocomplete="off">
+      <div class="hudTop">
+        <div class="hudRow">
+          <div class="kindSel">
+            <button class="kindBtn active" data-kind="Leuchte">Leuchte</button>
+            <button class="kindBtn" data-kind="Steckdose">Steckdose</button>
+            <button class="kindBtn" data-kind="Verteilung">Verteilung</button>
+          </div>
+          <button id="zoomBtn" title="Zoom">1×</button>
         </div>
-        <button class="stepBtn" id="plus">+</button>
+        <div class="hudRow">
+          <input id="ortInput" type="text" placeholder="Ort / Gebäude (optional)" autocomplete="off" maxlength="40" enterkeyhint="done">
+        </div>
       </div>
 
-      <div class="quick">
-        <button data-range="1-3">1-3</button>
-        <button data-range="1-5">1-5</button>
-        <button data-range="1-10">1-10</button>
-        <button id="clearNum">Leeren</button>
+      <div class="hudBottom">
+        <div class="hudRow">
+          <button class="stepBtn" id="minus" aria-label="Nummer minus">−</button>
+          <div class="numField" id="numField">
+            <input id="numInput" type="text" inputmode="none" readonly value="1" autocomplete="off" aria-label="Nummer">
+          </div>
+          <button class="stepBtn" id="plus" aria-label="Nummer plus">+</button>
+          <div class="quick">
+            <button data-range="1-3">1-3</button>
+            <button data-range="1-5">1-5</button>
+            <button data-range="1-10">1-10</button>
+            <button id="rangeMode">+5</button>
+          </div>
+        </div>
+        <div class="shootRow">
+          <div class="sideBtns">
+            <button class="lastThumb" id="lastThumb" title="Letztes Foto" hidden></button>
+            <button class="chip on" id="autoIncBtn" type="button">+1</button>
+          </div>
+          <button class="shoot" id="shoot" aria-label="Foto aufnehmen"></button>
+          <div class="sideBtns">
+            <button class="chip wait" id="gpsBtn" type="button">GPS …</button>
+            <button class="iconBtn" id="torch" title="Licht" hidden>🔦</button>
+            <button class="iconBtn" id="flip" title="Kamera wechseln">⟳</button>
+          </div>
+        </div>
       </div>
 
-      <label class="toggle">
-        <input type="checkbox" id="autoInc" checked>
-        Nummer nach dem Foto automatisch +1
-      </label>
-
-      <label class="toggle">
-        <input type="checkbox" id="gpsToggle" checked>
-        Standort aufnehmen (GPS)
-        <span id="gpsStatus" class="gpsStatus">…</span>
-      </label>
-
-      <div class="shootRow">
-        <button class="rangeBtn" id="rangeMode" title="Bereich">1-5</button>
-        <button class="shoot" id="shoot" aria-label="Foto aufnehmen"></button>
-        <button class="flipBtn" id="flip" title="Kamera wechseln">⟳</button>
+      <div id="numPad">
+        <div class="npValue" id="npValue">1</div>
+        <div class="npGrid">
+          <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
+          <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button>
+          <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button>
+          <button data-key="-">−</button><button data-key="0">0</button><button data-key="back">⌫</button>
+        </div>
+        <button id="npDone">Fertig</button>
       </div>
     </div>
   </section>
 
-  <!-- GALERIE -->
   <section class="view" id="galleryView">
     <div class="galBar">
       <span class="count" id="count">0 Fotos</span>
-      <button id="exportAll">Alle laden</button>
+      <button id="exportAll">Fotos teilen</button>
+      <button id="exportCsv">Liste.csv</button>
       <button id="clearAll">Alle löschen</button>
+    </div>
+    <div class="filters" id="filters">
+      <button data-filter="all" class="active">Alle</button>
+      <button data-filter="Leuchte">Leuchte</button>
+      <button data-filter="Steckdose">Steckdose</button>
+      <button data-filter="Verteilung">Verteilung</button>
     </div>
     <div id="gallery"></div>
     <div class="empty" id="emptyMsg">Noch keine Fotos. Nimm eins in der Kamera auf.</div>
   </section>
 </main>
 
-<!-- VIEWER -->
 <div id="viewer">
   <button class="vClose" id="vClose">×</button>
+  <button class="vNav prev" id="vPrev" aria-label="Vorheriges">‹</button>
+  <button class="vNav next" id="vNext" aria-label="Nächstes">›</button>
   <img id="vImg" alt="">
   <div class="vInfo" id="vInfo"></div>
   <div class="vBar">
@@ -218,15 +334,38 @@
 </div>
 
 <div class="toast" id="toast"></div>
-
 <canvas id="canvas" style="display:none"></canvas>
+<canvas id="thumbCanvas" style="display:none"></canvas>
 
 <script>
 "use strict";
 
-/* ---------- IndexedDB ---------- */
-const DB_NAME="rundgangDB", STORE="photos";
+const DB_NAME="rundgangDB", STORE="photos", SETTINGS_KEY="rundgangSettings";
+const KIND_CLS={Leuchte:"leuchte", Steckdose:"steckdose", Verteilung:"verteilung"};
+const KIND_SHORT={Leuchte:"L", Steckdose:"S", Verteilung:"V"};
+const ZOOM_STEPS=[1, 1.5, 2, 3];
+
 let db;
+let currentKind="Leuchte";
+let facingMode="environment";
+let stream=null;
+let capturing=false;
+let torchOn=false;
+let torchAvailable=false;
+let zoomIdx=0;
+let autoInc=true;
+let gpsOn=true;
+let lastPos=null;
+let watchId=null;
+let wakeLock=null;
+let cache=[];
+let objectUrls=[];
+let filterKind="all";
+let currentId=null;
+let lastId=null;
+let undoTimer=null;
+let kindNums={Leuchte:"1", Steckdose:"1", Verteilung:"1"};
+
 function openDB(){
   return new Promise((res,rej)=>{
     const r=indexedDB.open(DB_NAME,1);
@@ -239,10 +378,6 @@ function openDB(){
     r.onerror=e=>rej(e.target.error);
   });
 }
-function dbAdd(rec){return tx("readwrite",s=>s.put(rec))}
-function dbAll(){return tx("readonly",s=>s.getAll())}
-function dbDel(id){return tx("readwrite",s=>s.delete(id))}
-function dbClear(){return tx("readwrite",s=>s.clear())}
 function tx(mode,fn){
   return new Promise((res,rej)=>{
     const t=db.transaction(STORE,mode), s=t.objectStore(STORE);
@@ -251,19 +386,27 @@ function tx(mode,fn){
     t.onerror=()=>rej(t.error);
   });
 }
+function dbAdd(rec){return tx("readwrite",s=>s.put(rec))}
+function dbAll(){return tx("readonly",s=>s.getAll())}
+function dbDel(id){return tx("readwrite",s=>s.delete(id))}
+function dbClear(){return tx("readwrite",s=>s.clear())}
 
-/* ---------- Elemente ---------- */
 const video=document.getElementById("video");
 const camError=document.getElementById("camError");
 const overlayLabel=document.getElementById("overlayLabel");
+const overlayOrt=document.getElementById("overlayOrt");
 const numInput=document.getElementById("numInput");
+const ortInput=document.getElementById("ortInput");
 const canvas=document.getElementById("canvas");
+const thumbCanvas=document.getElementById("thumbCanvas");
 const toastEl=document.getElementById("toast");
-let currentKind="Leuchte";
-let facingMode="environment";
-let stream=null;
+const gpsBtn=document.getElementById("gpsBtn");
+const autoIncBtn=document.getElementById("autoIncBtn");
+const torchBtn=document.getElementById("torch");
+const zoomBtn=document.getElementById("zoomBtn");
+const lastThumbBtn=document.getElementById("lastThumb");
+const shootBtn=document.getElementById("shoot");
 
-/* ---------- Utility ---------- */
 function toast(msg,isErr){
   toastEl.textContent=msg;
   toastEl.classList.toggle("err",!!isErr);
@@ -276,26 +419,62 @@ function timeStamp(){
   const d=new Date();
   return d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+"_"+pad(d.getHours())+pad(d.getMinutes())+pad(d.getSeconds());
 }
-function safeLabel(){
-  let v=numInput.value.trim();
-  if(!v) v="ohne";
-  return v.replace(/[^0-9A-Za-zÄÖÜäöü.\- ]/g,"").replace(/\s+/g,"") || "ohne";
+function safePart(v, fallback){
+  v=String(v||"").trim();
+  if(!v) return fallback;
+  return v.replace(/[^0-9A-Za-zÄÖÜäöü.\- ]/g,"").replace(/\s+/g,"-") || fallback;
 }
-function fileNameFor(kind,label){
-  return kind+"_"+label+"_"+timeStamp()+".jpg";
+function fileNameFor(kind,label,ort){
+  const parts=[];
+  if(ort) parts.push(ort);
+  parts.push(kind, label, timeStamp());
+  return parts.join("_")+".jpg";
 }
-function updateOverlay(){
-  overlayLabel.textContent=numInput.value.trim()||"–";
+function haptic(ms){ if(navigator.vibrate) navigator.vibrate(ms||25); }
+
+function saveSettings(){
+  kindNums[currentKind]=numInput.value;
+  try{
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+      kind:currentKind, nums:kindNums, autoInc, gpsOn, facingMode,
+      ort:ortInput.value, lastId
+    }));
+  }catch(e){}
+}
+function loadSettings(){
+  try{
+    const s=JSON.parse(localStorage.getItem(SETTINGS_KEY)||"null");
+    if(!s) return;
+    if(s.nums) kindNums=Object.assign(kindNums,s.nums);
+    if(s.kind && KIND_SHORT[s.kind]) currentKind=s.kind;
+    if(typeof s.autoInc==="boolean") autoInc=s.autoInc;
+    if(typeof s.gpsOn==="boolean") gpsOn=s.gpsOn;
+    if(s.facingMode) facingMode=s.facingMode;
+    if(typeof s.ort==="string") ortInput.value=s.ort;
+    if(s.lastId) lastId=s.lastId;
+  }catch(e){}
 }
 
-/* ---------- Nummer / Bereich ---------- */
-// Interpretiert Zahl oder Bereich (a-b) und erhöht um 1
-function incInput(delta){
+function updateOverlay(){
+  const v=numInput.value.trim();
+  overlayLabel.textContent=KIND_SHORT[currentKind]+" "+(v||"–");
+  overlayLabel.className=KIND_CLS[currentKind]||"";
+  const ort=ortInput.value.trim();
+  overlayOrt.textContent=ort;
+  overlayOrt.style.display=ort?"block":"none";
+  kindNums[currentKind]=numInput.value;
+  const npValue=document.getElementById("npValue");
+  if(npValue) npValue.textContent=v||"–";
+  saveSettings();
+}
+
+function incInput(delta, asGroup){
   let v=numInput.value.trim();
   const m=v.match(/^(\d+)\s*-\s*(\d+)$/);
   if(m){
     let a=parseInt(m[1],10), b=parseInt(m[2],10), span=b-a;
-    a=Math.max(0,a+delta); b=a+span;
+    const step=asGroup ? (span+1)*Math.sign(delta||1)*Math.abs(delta) : delta;
+    a=Math.max(0,a+step); b=a+span;
     numInput.value=a+"-"+b;
   }else{
     const n=parseInt(v,10);
@@ -307,33 +486,137 @@ function incInput(delta){
 
 document.getElementById("plus").onclick=()=>incInput(1);
 document.getElementById("minus").onclick=()=>incInput(-1);
-numInput.addEventListener("input",updateOverlay);
-document.getElementById("clearNum").onclick=()=>{numInput.value=""; updateOverlay(); numInput.focus()};
+ortInput.addEventListener("input",updateOverlay);
 document.querySelectorAll(".quick [data-range]").forEach(b=>{
   b.onclick=()=>{numInput.value=b.dataset.range; updateOverlay()};
 });
+
+const camWrap=document.getElementById("camWrap");
+const numPad=document.getElementById("numPad");
+const numField=document.getElementById("numField");
+let replaceNext=true;
+function openNumPad(){
+  replaceNext=true;
+  camWrap.classList.add("pad-open");
+  numPad.classList.add("open");
+  numField.classList.add("editing");
+  updateOverlay();
+}
+function closeNumPad(){
+  camWrap.classList.remove("pad-open");
+  numPad.classList.remove("open");
+  numField.classList.remove("editing");
+}
+function typeNum(key){
+  if(key==="back"){
+    if(replaceNext){ numInput.value=""; replaceNext=false; }
+    else numInput.value=numInput.value.slice(0,-1);
+  }else if(key==="-"){
+    if(replaceNext){ replaceNext=false; }
+    if(!numInput.value.includes("-") && numInput.value.length) numInput.value+="-";
+  }else{
+    if(replaceNext){ numInput.value=key; replaceNext=false; }
+    else if(numInput.value.length<11) numInput.value+=key;
+  }
+  updateOverlay();
+}
+numField.addEventListener("pointerdown", e=>{ e.preventDefault(); openNumPad(); });
+numPad.querySelectorAll("[data-key]").forEach(b=>{
+  b.onclick=()=>typeNum(b.dataset.key);
+});
+document.getElementById("npDone").onclick=closeNumPad;
 document.getElementById("rangeMode").onclick=()=>{
-  // schnell aus aktueller Startzahl einen 5er-Bereich machen
   let v=numInput.value.trim();
-  const n=parseInt(v,10);
+  const m=v.match(/^(\d+)\s*-\s*(\d+)$/);
+  const n=parseInt(m?String(parseInt(m[2],10)+1):v,10);
   const start=isNaN(n)?1:n;
   numInput.value=start+"-"+(start+4);
   updateOverlay();
 };
 
-/* Art (Leuchte/Steckdose) */
+function setKind(kind){
+  currentKind=kind;
+  document.querySelectorAll(".kindBtn").forEach(x=>{
+    x.classList.toggle("active", x.dataset.kind===kind);
+  });
+  numInput.value=kindNums[kind]||"1";
+  updateOverlay();
+}
 document.querySelectorAll(".kindBtn").forEach(b=>{
-  b.onclick=()=>{
-    document.querySelectorAll(".kindBtn").forEach(x=>x.classList.remove("active"));
-    b.classList.add("active");
-    currentKind=b.dataset.kind;
-  };
+  b.onclick=()=>setKind(b.dataset.kind);
 });
 
-/* Auto +1 */
-const autoInc=document.getElementById("autoInc");
+autoIncBtn.onclick=()=>{
+  autoInc=!autoInc;
+  autoIncBtn.classList.toggle("on", autoInc);
+  saveSettings();
+};
 
-/* ---------- Kamera ---------- */
+function setGpsStatus(cls,txt){
+  gpsBtn.className="chip "+cls;
+  gpsBtn.textContent=txt;
+}
+function startGps(){
+  if(!navigator.geolocation){setGpsStatus("err","kein GPS"); return}
+  if(watchId!=null) return;
+  setGpsStatus("wait","GPS suche…");
+  watchId=navigator.geolocation.watchPosition(
+    p=>{
+      lastPos={lat:p.coords.latitude, lon:p.coords.longitude, acc:p.coords.accuracy, ts:Date.now()};
+      setGpsStatus("ok","GPS ±"+Math.round(p.coords.accuracy)+"m");
+    },
+    err=>{
+      if(err.code===1) setGpsStatus("err","GPS verweigert");
+      else setGpsStatus("err","kein Fix");
+    },
+    {enableHighAccuracy:true, maximumAge:5000, timeout:15000}
+  );
+}
+function stopGps(){
+  if(watchId!=null){navigator.geolocation.clearWatch(watchId); watchId=null}
+}
+gpsBtn.onclick=()=>{
+  gpsOn=!gpsOn;
+  saveSettings();
+  if(gpsOn) startGps();
+  else {stopGps(); setGpsStatus("","GPS aus"); lastPos=null;}
+};
+
+async function applyTorch(on){
+  const track=stream&&stream.getVideoTracks()[0];
+  if(!track) return;
+  try{
+    await track.applyConstraints({advanced:[{torch:!!on}]});
+    torchOn=!!on;
+    torchBtn.classList.toggle("on", torchOn);
+  }catch(e){
+    torchOn=false;
+    torchBtn.classList.remove("on");
+  }
+}
+function refreshTrackFeatures(){
+  const track=stream&&stream.getVideoTracks()[0];
+  torchAvailable=false;
+  if(track && typeof track.getCapabilities==="function"){
+    const caps=track.getCapabilities();
+    torchAvailable=!!(caps && caps.torch);
+  }
+  torchBtn.hidden=!torchAvailable;
+  if(!torchAvailable){ torchOn=false; torchBtn.classList.remove("on"); }
+}
+torchBtn.onclick=()=>applyTorch(!torchOn);
+
+function currentZoom(){ return ZOOM_STEPS[zoomIdx]||1; }
+function applyZoomPreview(){
+  const z=currentZoom();
+  video.style.transform="scale("+z+")";
+  zoomBtn.textContent=String(z).replace(".",",")+"×";
+}
+zoomBtn.onclick=()=>{
+  zoomIdx=(zoomIdx+1)%ZOOM_STEPS.length;
+  applyZoomPreview();
+};
+
 async function startCamera(){
   stopCamera();
   try{
@@ -344,6 +627,9 @@ async function startCamera(){
     video.srcObject=stream;
     camError.style.display="none";
     await video.play().catch(()=>{});
+    refreshTrackFeatures();
+    if(torchOn && torchAvailable) applyTorch(true);
+    applyZoomPreview();
   }catch(err){
     camError.style.display="flex";
     camError.textContent="Kamera nicht verfügbar ("+err.name+"). Erlaube den Zugriff und lade neu. iPhone: Safari + HTTPS.";
@@ -354,114 +640,18 @@ function stopCamera(){
 }
 document.getElementById("flip").onclick=()=>{
   facingMode=facingMode==="environment"?"user":"environment";
+  torchOn=false;
+  saveSettings();
   startCamera();
 };
 
-/* ---------- Standort (GPS) ---------- */
-const gpsToggle=document.getElementById("gpsToggle");
-const gpsStatus=document.getElementById("gpsStatus");
-let lastPos=null;      // {lat,lon,acc,ts}
-let watchId=null;
-
-function setGpsStatus(cls,txt){
-  gpsStatus.className="gpsStatus "+cls;
-  gpsStatus.textContent=txt;
-}
-function startGps(){
-  if(!navigator.geolocation){setGpsStatus("err","kein GPS"); return}
-  if(watchId!=null) return;
-  setGpsStatus("wait","suche…");
-  watchId=navigator.geolocation.watchPosition(
-    p=>{
-      lastPos={lat:p.coords.latitude, lon:p.coords.longitude, acc:p.coords.accuracy, ts:Date.now()};
-      setGpsStatus("ok","±"+Math.round(p.coords.accuracy)+"m");
-    },
-    err=>{
-      if(err.code===1) setGpsStatus("err","verweigert");
-      else setGpsStatus("err","kein Fix");
-    },
-    {enableHighAccuracy:true, maximumAge:5000, timeout:15000}
-  );
-}
-function stopGps(){
-  if(watchId!=null){navigator.geolocation.clearWatch(watchId); watchId=null}
-}
-gpsToggle.onchange=()=>{
-  if(gpsToggle.checked){startGps();}
-  else{stopGps(); setGpsStatus("","aus"); lastPos=null;}
-};
-
-/* ---------- Foto aufnehmen + Nummer einbrennen ---------- */
-async function capture(){
-  if(!stream){toast("Keine Kamera",true); return}
-  const vw=video.videoWidth, vh=video.videoHeight;
-  if(!vw||!vh){toast("Kamera lädt noch",true); return}
-
-  canvas.width=vw; canvas.height=vh;
-  const ctx=canvas.getContext("2d");
-  ctx.drawImage(video,0,0,vw,vh);
-
-  const label=numInput.value.trim();
-  const kind=currentKind;
-
-  // Standort abgreifen (aktuellster Wert)
-  const pos=gpsToggle.checked?lastPos:null;
-
-  // Label ins Bild brennen
-  if(label){
-    const fs=Math.round(vh*0.06);          // Schriftgröße relativ zur Höhe
-    const pad=Math.round(fs*0.4);
-    ctx.font="800 "+fs+"px -apple-system,Arial,sans-serif";
-    ctx.textBaseline="top";
-    const text=kind.charAt(0)+" "+label;   // z.B. "L 1-5"
-    const tw=ctx.measureText(text).width;
-    const bx=pad, by=vh-fs-pad*2-pad;
-    // Hintergrundbox
-    ctx.fillStyle="rgba(0,0,0,0.6)";
-    roundRect(ctx,bx,by,tw+pad*2,fs+pad*2,pad*0.6);
-    ctx.fill();
-    // Rahmen
-    ctx.strokeStyle="#ffcc00"; ctx.lineWidth=Math.max(2,fs*0.06);
-    roundRect(ctx,bx,by,tw+pad*2,fs+pad*2,pad*0.6); ctx.stroke();
-    // Text
-    ctx.fillStyle="#fff";
-    ctx.fillText(text,bx+pad,by+pad);
-  }
-
-  // Koordinaten unten rechts einbrennen
-  if(pos){
-    const gfs=Math.round(vh*0.028);
-    const gpad=Math.round(gfs*0.5);
-    ctx.font="700 "+gfs+"px -apple-system,Arial,sans-serif";
-    ctx.textBaseline="bottom";
-    const gtext="\u{1F4CD} "+pos.lat.toFixed(6)+", "+pos.lon.toFixed(6)+" (±"+Math.round(pos.acc)+"m)";
-    const gtw=ctx.measureText(gtext).width;
-    const gx=vw-gtw-gpad*2-gpad, gy=vh-gpad;
-    ctx.fillStyle="rgba(0,0,0,0.6)";
-    roundRect(ctx,gx,gy-gfs-gpad*2,gtw+gpad*2,gfs+gpad*2,gpad*0.6); ctx.fill();
-    ctx.fillStyle="#fff";
-    ctx.fillText(gtext,gx+gpad,gy-gpad*0.5);
-  }
-
-  const dataUrl=canvas.toDataURL("image/jpeg",0.9);
-  const rec={
-    id:Date.now()+"_"+Math.random().toString(36).slice(2,7),
-    kind, label:label||"ohne",
-    name:fileNameFor(kind,safeLabel()),
-    ts:Date.now(),
-    lat:pos?pos.lat:null, lon:pos?pos.lon:null, acc:pos?pos.acc:null,
-    data:dataUrl
-  };
+async function requestWake(){
   try{
-    await dbAdd(rec);
-    flash();
-    toast("Gespeichert: "+rec.label+(gpsToggle.checked?(pos?" \u{1F4CD}":" (kein GPS)"):""),gpsToggle.checked&&!pos);
-    if(autoInc.checked) incInput(1);
-    refreshCount();
-  }catch(e){
-    toast("Speichern fehlgeschlagen",true);
-  }
+    if(navigator.wakeLock && document.visibilityState==="visible")
+      wakeLock=await navigator.wakeLock.request("screen");
+  }catch(e){}
 }
+
 function roundRect(ctx,x,y,w,h,r){
   ctx.beginPath();
   ctx.moveTo(x+r,y);
@@ -471,6 +661,127 @@ function roundRect(ctx,x,y,w,h,r){
   ctx.arcTo(x,y,x+w,y,r);
   ctx.closePath();
 }
+function canvasToBlob(c, q){
+  return new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error("blob")), "image/jpeg", q));
+}
+function makeThumbBlob(){
+  const max=360, sw=canvas.width, sh=canvas.height;
+  const s=Math.min(1, max/Math.max(sw,sh));
+  thumbCanvas.width=Math.max(1,Math.round(sw*s));
+  thumbCanvas.height=Math.max(1,Math.round(sh*s));
+  thumbCanvas.getContext("2d").drawImage(canvas,0,0,thumbCanvas.width,thumbCanvas.height);
+  return canvasToBlob(thumbCanvas, 0.7);
+}
+function blobUrl(blob){
+  const u=URL.createObjectURL(blob);
+  objectUrls.push(u);
+  return u;
+}
+function revokeUrls(){
+  objectUrls.forEach(u=>URL.revokeObjectURL(u));
+  objectUrls=[];
+}
+function recBlob(r){ return r.data instanceof Blob ? r.data : dataURLtoBlob(r.data); }
+function recSrc(r, thumb){
+  const src=thumb && r.thumb ? r.thumb : r.data;
+  if(src instanceof Blob) return blobUrl(src);
+  return src;
+}
+
+function drawLabelBox(ctx, text, x, y, fs, color){
+  const pad=Math.round(fs*0.4);
+  ctx.font="800 "+fs+"px -apple-system,Arial,sans-serif";
+  ctx.textBaseline="top";
+  const tw=ctx.measureText(text).width;
+  ctx.fillStyle="rgba(0,0,0,0.6)";
+  roundRect(ctx,x,y,tw+pad*2,fs+pad*2,pad*0.6); ctx.fill();
+  ctx.strokeStyle=color; ctx.lineWidth=Math.max(2,fs*0.06);
+  roundRect(ctx,x,y,tw+pad*2,fs+pad*2,pad*0.6); ctx.stroke();
+  ctx.fillStyle="#fff";
+  ctx.fillText(text,x+pad,y+pad);
+  return fs+pad*2;
+}
+
+async function capture(){
+  if(capturing) return;
+  closeNumPad();
+  if(!stream){toast("Keine Kamera",true); return}
+  const vw=video.videoWidth, vh=video.videoHeight;
+  if(!vw||!vh){toast("Kamera lädt noch",true); return}
+  capturing=true;
+  shootBtn.disabled=true;
+
+  try{
+    const zoom=currentZoom();
+    canvas.width=vw; canvas.height=vh;
+    const ctx=canvas.getContext("2d");
+    const sw=vw/zoom, sh=vh/zoom;
+    ctx.drawImage(video, (vw-sw)/2, (vh-sh)/2, sw, sh, 0, 0, vw, vh);
+
+    const label=numInput.value.trim();
+    const kind=currentKind;
+    const ort=ortInput.value.trim();
+    const pos=gpsOn?lastPos:null;
+    const kindColor=kind==="Steckdose"?"#8a5cff":kind==="Verteilung"?"#37c871":"#2d7dff";
+
+    if(ort){
+      const ofs=Math.round(vh*0.028);
+      ctx.font="700 "+ofs+"px -apple-system,Arial,sans-serif";
+      ctx.textBaseline="top";
+      const pad=Math.round(ofs*0.45);
+      const tw=ctx.measureText(ort).width;
+      ctx.fillStyle="rgba(0,0,0,0.55)";
+      roundRect(ctx,pad,pad,tw+pad*2,ofs+pad*1.6,pad*0.5); ctx.fill();
+      ctx.fillStyle="#fff";
+      ctx.fillText(ort,pad*2,pad*1.4);
+    }
+
+    if(label){
+      const fs=Math.round(vh*0.055);
+      const pad=Math.round(fs*0.4);
+      const text=KIND_SHORT[kind]+" "+label;
+      drawLabelBox(ctx, text, pad, vh-fs-pad*3, fs, kindColor);
+    }
+
+    if(pos){
+      const gfs=Math.round(vh*0.026);
+      const gpad=Math.round(gfs*0.5);
+      ctx.font="700 "+gfs+"px -apple-system,Arial,sans-serif";
+      ctx.textBaseline="bottom";
+      const gtext=pos.lat.toFixed(6)+", "+pos.lon.toFixed(6)+" (±"+Math.round(pos.acc)+"m)";
+      const gtw=ctx.measureText(gtext).width;
+      const gx=vw-gtw-gpad*3, gy=vh-gpad;
+      ctx.fillStyle="rgba(0,0,0,0.6)";
+      roundRect(ctx,gx,gy-gfs-gpad*2,gtw+gpad*2,gfs+gpad*2,gpad*0.6); ctx.fill();
+      ctx.fillStyle="#fff";
+      ctx.fillText(gtext,gx+gpad,gy-gpad*0.5);
+    }
+
+    const [blob, thumb]=await Promise.all([canvasToBlob(canvas,0.88), makeThumbBlob()]);
+    const rec={
+      id:Date.now()+"_"+Math.random().toString(36).slice(2,7),
+      kind, label:label||"ohne", ort:ort||"",
+      name:fileNameFor(kind, safePart(label,"ohne"), safePart(ort,"")),
+      ts:Date.now(),
+      lat:pos?pos.lat:null, lon:pos?pos.lon:null, acc:pos?pos.acc:null,
+      data:blob, thumb
+    };
+    await dbAdd(rec);
+    flash();
+    haptic(30);
+    lastId=rec.id;
+    saveSettings();
+    showLastThumb(rec, true);
+    toast("Gespeichert: "+(ort?ort+" · ":"")+rec.label+(gpsOn?(pos?" 📍":" (kein GPS)"):""), gpsOn&&!pos);
+    if(autoInc) incInput(1, true);
+    refreshCount();
+  }catch(e){
+    toast("Speichern fehlgeschlagen",true);
+  }finally{
+    capturing=false;
+    shootBtn.disabled=false;
+  }
+}
 function flash(){
   const f=document.createElement("div");
   f.style.cssText="position:fixed;inset:0;background:#fff;z-index:90;opacity:.8;transition:opacity .3s";
@@ -478,57 +789,139 @@ function flash(){
   requestAnimationFrame(()=>{f.style.opacity="0"});
   setTimeout(()=>f.remove(),320);
 }
-document.getElementById("shoot").onclick=capture;
+shootBtn.onclick=capture;
 
-/* ---------- Galerie ---------- */
+function showLastThumb(rec, canUndo){
+  lastThumbBtn.hidden=false;
+  lastThumbBtn.innerHTML="";
+  const img=document.createElement("img");
+  img.alt="";
+  img.src=recSrc(rec, true);
+  lastThumbBtn.appendChild(img);
+  const undo=document.createElement("span");
+  undo.className="undo";
+  undo.textContent="↩";
+  lastThumbBtn.appendChild(undo);
+  lastThumbBtn.classList.toggle("can-undo", !!canUndo);
+  clearTimeout(undoTimer);
+  if(canUndo){
+    undoTimer=setTimeout(()=>lastThumbBtn.classList.remove("can-undo"), 6000);
+  }
+}
+lastThumbBtn.onclick=async()=>{
+  if(lastThumbBtn.classList.contains("can-undo") && lastId){
+    await dbDel(lastId);
+    lastId=null;
+    saveSettings();
+    lastThumbBtn.classList.remove("can-undo");
+    toast("Letztes Foto rückgängig");
+    const all=await dbAll()||[];
+    const newest=all.sort((a,b)=>b.ts-a.ts)[0];
+    if(newest){ lastId=newest.id; saveSettings(); showLastThumb(newest,false); }
+    else lastThumbBtn.hidden=true;
+    refreshCount();
+    return;
+  }
+  if(lastId){
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
+    document.querySelector('.tab[data-view="galleryView"]').classList.add("active");
+    document.getElementById("galleryView").classList.add("active");
+    stopCamera();
+    await loadGallery();
+    openViewer(lastId);
+  }
+};
+
 const galleryEl=document.getElementById("gallery");
 const emptyMsg=document.getElementById("emptyMsg");
 const countEl=document.getElementById("count");
-let cache=[];
 
 async function loadGallery(){
+  revokeUrls();
   cache=(await dbAll()||[]).sort((a,b)=>b.ts-a.ts);
+  const list=filterKind==="all"?cache:cache.filter(r=>r.kind===filterKind);
   galleryEl.innerHTML="";
-  emptyMsg.style.display=cache.length?"none":"block";
-  for(const r of cache){
+  emptyMsg.style.display=list.length?"none":"block";
+  emptyMsg.textContent=cache.length?"Keine Fotos in diesem Filter.":"Noch keine Fotos. Nimm eins in der Kamera auf.";
+  for(const r of list){
     const c=document.createElement("div");
     c.className="card";
-    const kindCls=r.kind==="Steckdose"?"steckdose":(r.kind==="Verteilung"?"verteilung":"");
-    c.innerHTML=
-      '<span class="badge '+kindCls+'">'+r.kind+'</span>'+
-      '<img loading="lazy" src="'+r.data+'">'+
-      '<div class="meta"><b>'+escapeHtml(r.label)+'</b><small>'+fmtDate(r.ts)+
-        (r.lat!=null?' \u{1F4CD}':'')+'</small></div>';
-    c.querySelector("img").onclick=()=>openViewer(r.id);
+    const img=document.createElement("img");
+    img.loading="lazy";
+    img.alt=r.kind+" "+r.label;
+    img.src=recSrc(r,true);
+    const badge=document.createElement("span");
+    badge.className="badge "+(KIND_CLS[r.kind]||"");
+    badge.textContent=r.kind;
+    const meta=document.createElement("div");
+    meta.className="meta";
+    const b=document.createElement("b");
+    b.textContent=r.label;
+    const small=document.createElement("small");
+    small.textContent=fmtDate(r.ts)+(r.ort?" · "+r.ort:"")+(r.lat!=null?" 📍":"");
+    meta.appendChild(b); meta.appendChild(small);
+    c.appendChild(badge); c.appendChild(img); c.appendChild(meta);
+    img.onclick=()=>openViewer(r.id);
     galleryEl.appendChild(c);
   }
   refreshCount();
+  if(lastId){
+    const rec=cache.find(x=>x.id===lastId);
+    if(rec) showLastThumb(rec,false);
+  }else if(cache[0]){
+    lastId=cache[0].id;
+    showLastThumb(cache[0],false);
+  }
 }
-function refreshCount(){ dbAll().then(a=>{countEl.textContent=(a?a.length:0)+" Fotos"}); }
-function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function refreshCount(){
+  dbAll().then(a=>{
+    const n=a?a.length:0;
+    countEl.textContent=n+" Foto"+(n===1?"":"s");
+  });
+}
 function fmtDate(ts){const d=new Date(ts); return pad(d.getDate())+"."+pad(d.getMonth()+1)+". "+pad(d.getHours())+":"+pad(d.getMinutes())}
 
-/* ---------- Viewer ---------- */
+document.querySelectorAll("#filters [data-filter]").forEach(b=>{
+  b.onclick=()=>{
+    filterKind=b.dataset.filter;
+    document.querySelectorAll("#filters [data-filter]").forEach(x=>x.classList.toggle("active", x===b));
+    loadGallery();
+  };
+});
+
 const viewer=document.getElementById("viewer");
 const vImg=document.getElementById("vImg");
 const vInfo=document.getElementById("vInfo");
-let currentId=null;
+
+function visibleList(){
+  return filterKind==="all"?cache:cache.filter(r=>r.kind===filterKind);
+}
 function openViewer(id){
   const r=cache.find(x=>x.id===id); if(!r) return;
   currentId=id;
-  vImg.src=r.data;
-  let info=r.kind+" "+r.label+" · "+r.name;
+  vImg.src=recSrc(r,false);
+  let info=r.kind+" "+r.label+(r.ort?" · "+r.ort:"")+" · "+r.name;
   if(r.lat!=null){
     const q=r.lat.toFixed(6)+","+r.lon.toFixed(6);
     vInfo.innerHTML=escapeHtml(info)+'<br><a href="https://www.google.com/maps?q='+q+
-      '" target="_blank" rel="noopener" style="color:var(--accent)">\u{1F4CD} '+q+
-      ' (±'+Math.round(r.acc)+'m)</a>';
+      '" target="_blank" rel="noopener">📍 '+q+" (±"+Math.round(r.acc)+"m)</a>";
   }else{
     vInfo.textContent=info;
   }
   viewer.classList.add("active");
 }
+function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function stepViewer(dir){
+  const list=visibleList();
+  const i=list.findIndex(x=>x.id===currentId);
+  if(i<0) return;
+  const n=list[i+dir];
+  if(n) openViewer(n.id);
+}
 document.getElementById("vClose").onclick=()=>{viewer.classList.remove("active"); currentId=null};
+document.getElementById("vPrev").onclick=()=>stepViewer(-1);
+document.getElementById("vNext").onclick=()=>stepViewer(1);
 document.getElementById("vDl").onclick=()=>{
   const r=cache.find(x=>x.id===currentId); if(!r) return;
   downloadRec(r);
@@ -536,9 +929,12 @@ document.getElementById("vDl").onclick=()=>{
 document.getElementById("vDel").onclick=async()=>{
   if(!currentId) return;
   if(!confirm("Foto löschen?")) return;
-  await dbDel(currentId);
+  const delId=currentId;
+  await dbDel(delId);
+  if(lastId===delId) lastId=null;
   viewer.classList.remove("active");
-  loadGallery();
+  currentId=null;
+  await loadGallery();
   toast("Gelöscht");
 };
 document.getElementById("vShare").onclick=async()=>{
@@ -546,23 +942,32 @@ document.getElementById("vShare").onclick=async()=>{
   await shareRec(r);
 };
 
+let swipeX=0;
+viewer.addEventListener("touchstart", e=>{ swipeX=e.changedTouches[0].clientX; }, {passive:true});
+viewer.addEventListener("touchend", e=>{
+  const dx=e.changedTouches[0].clientX-swipeX;
+  if(Math.abs(dx)>60) stepViewer(dx<0?1:-1);
+}, {passive:true});
+
 function dataURLtoBlob(dataUrl){
   const [head,body]=dataUrl.split(",");
-  const mime=head.match(/:(.*?);/)[1];
+  const mime=(head.match(/:(.*?);/)||[])[1]||"image/jpeg";
   const bin=atob(body); const u8=new Uint8Array(bin.length);
   for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
   return new Blob([u8],{type:mime});
 }
 function downloadRec(r){
   const a=document.createElement("a");
-  a.href=r.data; a.download=r.name;
+  const blob=recBlob(r);
+  const url=blob instanceof Blob ? blobUrl(blob) : r.data;
+  a.href=url; a.download=r.name;
   document.body.appendChild(a); a.click(); a.remove();
   toast("Datei: "+r.name);
 }
 async function shareRec(r){
   try{
-    const blob=dataURLtoBlob(r.data);
-    const file=new File([blob],r.name,{type:blob.type});
+    const blob=recBlob(r);
+    const file=new File([blob],r.name,{type:blob.type||"image/jpeg"});
     if(navigator.canShare&&navigator.canShare({files:[file]})){
       await navigator.share({files:[file],title:r.name});
     }else{
@@ -571,55 +976,116 @@ async function shareRec(r){
   }catch(e){ /* Abbruch ignorieren */ }
 }
 
-/* Alle laden / löschen */
 document.getElementById("exportAll").onclick=async()=>{
   const all=(await dbAll()||[]);
   if(!all.length){toast("Nichts zu laden",true); return}
   if(navigator.canShare){
-    const files=all.map(r=>new File([dataURLtoBlob(r.data)],r.name,{type:"image/jpeg"}));
+    const files=all.map(r=>new File([recBlob(r)],r.name,{type:"image/jpeg"}));
     if(navigator.canShare({files})){
       try{ await navigator.share({files,title:"Rundgang Fotos"}); return; }catch(e){ if(e.name==="AbortError") return; }
     }
   }
-  // Fallback: einzeln herunterladen
   for(const r of all){ downloadRec(r); await new Promise(res=>setTimeout(res,350)); }
 };
+
+function csvCell(v){
+  return '"'+String(v==null?"":v).replace(/"/g,'""')+'"';
+}
+document.getElementById("exportCsv").onclick=async()=>{
+  const all=(await dbAll()||[]).sort((a,b)=>a.ts-b.ts);
+  if(!all.length){toast("Nichts zu exportieren",true); return}
+  const rows=[["Art","Nummer","Ort","Datei","Zeit","Breite","Laenge","Genauigkeit_m"]];
+  for(const r of all){
+    const d=new Date(r.ts);
+    const zeit=d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+" "+pad(d.getHours())+":"+pad(d.getMinutes())+":"+pad(d.getSeconds());
+    rows.push([r.kind, r.label, r.ort||"", r.name, zeit,
+      r.lat!=null?r.lat.toFixed(6):"", r.lon!=null?r.lon.toFixed(6):"",
+      r.acc!=null?Math.round(r.acc):""]);
+  }
+  const csv="\ufeff"+rows.map(row=>row.map(csvCell).join(";")).join("\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");
+  a.href=blobUrl(blob);
+  a.download="Rundgang_"+timeStamp()+".csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  toast("Liste gespeichert");
+};
+
 document.getElementById("clearAll").onclick=async()=>{
   const all=(await dbAll()||[]);
   if(!all.length) return;
   if(!confirm("Wirklich ALLE "+all.length+" Fotos löschen?")) return;
-  await dbClear(); loadGallery(); toast("Alle gelöscht");
+  await dbClear(); lastId=null; saveSettings(); lastThumbBtn.hidden=true;
+  loadGallery(); toast("Alle gelöscht");
 };
 
-/* ---------- Tabs ---------- */
 document.querySelectorAll(".tab").forEach(t=>{
   t.onclick=()=>{
+    closeNumPad();
     document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
     document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
     t.classList.add("active");
     document.getElementById(t.dataset.view).classList.add("active");
-    if(t.dataset.view==="galleryView") loadGallery();
-    if(t.dataset.view==="camera" && !stream) startCamera();
+    if(t.dataset.view==="galleryView"){ stopCamera(); loadGallery(); }
+    if(t.dataset.view==="camera") startCamera();
   };
 });
 
-/* ---------- Start ---------- */
+document.addEventListener("keydown", e=>{
+  if(viewer.classList.contains("active")){
+    if(e.key==="ArrowLeft") stepViewer(-1);
+    if(e.key==="ArrowRight") stepViewer(1);
+    if(e.key==="Escape") {viewer.classList.remove("active"); currentId=null;}
+    return;
+  }
+  if(numPad.classList.contains("open")){
+    if(e.key>="0" && e.key<="9") { e.preventDefault(); typeNum(e.key); }
+    else if(e.key==="Backspace") { e.preventDefault(); typeNum("back"); }
+    else if(e.key==="-" || e.key==="Minus") { e.preventDefault(); typeNum("-"); }
+    else if(e.key==="Enter" || e.key==="Escape") { e.preventDefault(); closeNumPad(); }
+    return;
+  }
+  const typing=document.activeElement===ortInput;
+  if(typing){
+    if(e.key==="Enter"){ e.preventDefault(); ortInput.blur(); }
+    return;
+  }
+  if(!document.getElementById("camera").classList.contains("active")) return;
+  if(e.code==="Space" || e.key==="Enter" || e.key==="VolumeDown" || e.key==="VolumeUp" || e.key==="AudioVolumeDown"){
+    e.preventDefault();
+    capture();
+  }
+});
+
 (async function init(){
-  updateOverlay();
+  loadSettings();
+  setKind(currentKind);
+  autoIncBtn.classList.toggle("on", autoInc);
+  if(!gpsOn) setGpsStatus("","GPS aus");
   try{ await openDB(); }catch(e){ toast("Speicher nicht verfügbar",true); }
   refreshCount();
-  if(gpsToggle.checked) startGps();
+  try{
+    const all=(await dbAll()||[]).sort((a,b)=>b.ts-a.ts);
+    const rec=all.find(x=>x.id===lastId)||all[0];
+    if(rec){ lastId=rec.id; showLastThumb(rec,false); }
+  }catch(e){}
+  if(gpsOn) startGps();
   await startCamera();
+  requestWake();
   if("serviceWorker" in navigator){
     navigator.serviceWorker.register("sw.js").catch(()=>{});
   }
 })();
 
 document.addEventListener("visibilitychange",()=>{
-  if(document.hidden){ stopCamera(); stopGps(); }
-  else{
+  if(document.hidden){
+    stopCamera();
+    stopGps();
+    if(wakeLock){ try{ wakeLock.release(); }catch(e){} wakeLock=null; }
+  }else{
+    requestWake();
     if(document.getElementById("camera").classList.contains("active")) startCamera();
-    if(gpsToggle.checked) startGps();
+    if(gpsOn) startGps();
   }
 });
 </script>
