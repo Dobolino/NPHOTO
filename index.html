@@ -305,7 +305,7 @@
       <div id="zoomBar"></div>
 
       <div class="hudBottom">
-        <div id="overlayLabel" class="leuchte">L 1</div>
+        <div id="overlayLabel" class="leuchte">1</div>
         <div class="hudRow">
           <button class="stepBtn" id="minus" aria-label="Nummer minus">−</button>
           <div class="numField" id="numField">
@@ -578,7 +578,7 @@ function fmtOne(prefix,n){ return prefix+String(n); }
 
 function updateOverlay(){
   const v=numInput.value.trim();
-  overlayLabel.textContent=KIND_SHORT[currentKind]+" "+(v||"–");
+  overlayLabel.textContent=v||"–";
   overlayLabel.className=KIND_CLS[currentKind]||"";
   overlayLabel.style.fontSize=v.length>16?"15px":v.length>10?"18px":"22px";
   const ort=ortInput.value.trim();
@@ -1014,7 +1014,7 @@ function drawOverlays(ctx,vw,vh,opts){
   if(label){
     const fs=Math.round(vh*0.055);
     const pad=Math.round(fs*0.4);
-    const text=(KIND_SHORT[kind]||kind.charAt(0))+" "+label;
+    const text=label;
     drawLabelBox(ctx, text, pad, vh-fs-pad*3, fs, kindColor);
   }
   if(pos){
@@ -1052,8 +1052,11 @@ async function applyLabelToRec(rec, newLabel){
   if(!hasOrig){
     const fs=Math.round(vh*0.055);
     const pad=Math.round(fs*0.4);
+    ctx.font="800 "+fs+"px -apple-system,Arial,sans-serif";
+    const oldText=(KIND_SHORT[rec.kind]||"X")+" "+(rec.label||"");
+    const coverW=Math.min(vw*0.68, ctx.measureText(oldText).width+pad*6);
     ctx.fillStyle="#111418";
-    roundRect(ctx, Math.max(0,pad-8), vh-fs-pad*5, Math.min(vw*0.85, vw-pad), fs+pad*5, pad);
+    roundRect(ctx, Math.max(0,pad-8), vh-fs-pad*5, coverW, fs+pad*5, pad);
     ctx.fill();
   }
   const pos=rec.lat!=null?{lat:rec.lat, lon:rec.lon, acc:rec.acc}:null;
@@ -1068,9 +1071,21 @@ async function applyLabelToRec(rec, newLabel){
   rec.name=fileNameFor(rec.kind, safePart(newLabel,"ohne"), safePart(rec.ort||"",""));
   rec.data=blob;
   rec.thumb=thumb;
+  rec.labelV2=true;
   await dbAdd(rec);
   const i=cache.findIndex(x=>x.id===rec.id);
   if(i>=0) cache[i]=rec;
+}
+
+async function migrateOldLabels(){
+  const all=await dbAll()||[];
+  let n=0;
+  for(const rec of all){
+    if(rec.labelV2) continue;
+    try{ await applyLabelToRec(rec, rec.label); n++; }
+    catch(e){}
+  }
+  return n;
 }
 
 async function capture(){
@@ -1103,7 +1118,7 @@ async function capture(){
       name:fileNameFor(kind, safePart(label,"ohne"), safePart(ort,"")),
       ts:Date.now(),
       lat:pos?pos.lat:null, lon:pos?pos.lon:null, acc:pos?pos.acc:null,
-      data:blob, thumb, orig
+      data:blob, thumb, orig, labelV2:true
     };
     await dbAdd(rec);
     flash();
@@ -1439,6 +1454,10 @@ keepAccessToggle.onchange=()=>{
   if(!gpsOn) setGpsStatus("","GPS aus");
   try{ await openDB(); }catch(e){ toast("Speicher nicht verfügbar",true); }
   try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist(); }catch(e){}
+  try{
+    const n=await migrateOldLabels();
+    if(n) toast(n===1?"Foto aktualisiert":n+" Fotos aktualisiert");
+  }catch(e){}
   refreshCount();
   try{
     const all=(await dbAll()||[]).sort((a,b)=>b.ts-a.ts);
