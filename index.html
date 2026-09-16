@@ -55,10 +55,10 @@
   }
   .controls{padding:14px 16px; display:flex; flex-direction:column; gap:14px}
   .row{display:flex; gap:10px; align-items:center}
-  .kindSel{display:flex; gap:8px; flex:1}
+  .kindSel{display:flex; gap:6px; flex:1}
   .kindBtn{
-    flex:1; padding:10px; border-radius:12px; border:1px solid var(--line);
-    background:var(--panel2); color:var(--muted); font-size:15px; font-weight:600;
+    flex:1; padding:10px 4px; border-radius:12px; border:1px solid var(--line);
+    background:var(--panel2); color:var(--muted); font-size:13px; font-weight:600; white-space:nowrap;
   }
   .kindBtn.active{background:var(--accent2); color:#fff; border-color:var(--accent2)}
   .numField{flex:1; display:flex; align-items:center; gap:8px; background:var(--panel2);
@@ -105,6 +105,7 @@
   .badge{position:absolute; top:6px; left:6px; background:var(--accent2); color:#fff;
     font-size:10px; padding:2px 6px; border-radius:6px; font-weight:700}
   .badge.steckdose{background:#8a5cff}
+  .badge.verteilung{background:#37c871; color:#083}
   .galBar{display:flex; gap:8px; padding:12px; border-bottom:1px solid var(--line); background:var(--panel); position:sticky; top:0; z-index:5}
   .galBar button{flex:1; padding:10px; border-radius:10px; border:1px solid var(--line);
     background:var(--panel2); color:var(--txt); font-size:13px; font-weight:600}
@@ -154,6 +155,7 @@
       <div class="kindSel">
         <button class="kindBtn active" data-kind="Leuchte">Leuchte</button>
         <button class="kindBtn" data-kind="Steckdose">Steckdose</button>
+        <button class="kindBtn" data-kind="Verteilung">Verteilung</button>
       </div>
 
       <label class="hint">Nummer oder Bereich (z. B. 7 oder 1-5)</label>
@@ -491,7 +493,7 @@ async function loadGallery(){
   for(const r of cache){
     const c=document.createElement("div");
     c.className="card";
-    const kindCls=r.kind==="Steckdose"?"steckdose":"";
+    const kindCls=r.kind==="Steckdose"?"steckdose":(r.kind==="Verteilung"?"verteilung":"");
     c.innerHTML=
       '<span class="badge '+kindCls+'">'+r.kind+'</span>'+
       '<img loading="lazy" src="'+r.data+'">'+
