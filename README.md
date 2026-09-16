@@ -18,7 +18,7 @@ Kleine Web-App für den Campus-Rundgang. Du fotografierst Leuchten, Steckdosen o
 - Einstellung: Kamera und GPS nur einmal freigeben (Zugriff bleibt aktiv, weniger erneute Abfragen). Auf dem iPhone «Erlauben» tippen und die App zum Home-Bildschirm legen.
 - Standort (GPS) pro Foto: Koordinaten werden gespeichert, ins Bild gebrannt und in der Galerie als Karten-Link angezeigt
 - Galerie mit Filter, Teilen, CSV-Liste (Art, Nummer, Ort, GPS) und Löschen
-- Letztes Foto rückgängig (kurz nach der Aufnahme)
+- Nummer nachträglich am Foto ändern (Galerie → Foto → Nummer)
 - Einstellungen bleiben erhalten (Nummer, Art, Ort, GPS, Auto +1)
 - Offline als PWA (IndexedDB, Service Worker)
 

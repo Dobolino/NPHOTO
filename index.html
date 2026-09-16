@@ -1387,7 +1387,8 @@ document.addEventListener("keydown", e=>{
     else if(e.key==="Backspace") { e.preventDefault(); typeNum("back"); }
     else if(e.key==="-" || e.key==="Minus") { e.preventDefault(); typeNum("-"); }
     else if(e.key==="." || e.key==="," || e.key==="Decimal") { e.preventDefault(); typeNum("."); }
-    else if(e.key==="Enter" || e.key==="Escape") { e.preventDefault(); document.getElementById("npDone").click(); }
+    else if(e.key==="Enter") { e.preventDefault(); document.getElementById("npDone").click(); }
+    else if(e.key==="Escape") { e.preventDefault(); closeNumPad(); }
     return;
   }
   if(viewer.classList.contains("active")){
