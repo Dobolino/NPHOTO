@@ -156,7 +156,7 @@
   .shoot:disabled{opacity:.5}
   .numField.editing{border-color:var(--accent)}
   #numPad{
-    position:absolute; left:0; right:0; bottom:0; z-index:6;
+    position:fixed; left:0; right:0; bottom:0; z-index:85;
     display:none; flex-direction:column; gap:6px;
     padding:10px 10px calc(10px + env(safe-area-inset-bottom));
     background:rgba(17,20,24,.96);
@@ -229,7 +229,7 @@
   #viewer.active{display:flex}
   #viewer img{flex:1; width:100%; object-fit:contain; min-height:0}
   .vBar{display:flex; gap:8px; padding:14px; padding-bottom:calc(14px + env(safe-area-inset-bottom))}
-  .vBar button{flex:1; padding:12px; border-radius:10px; border:0; font-size:14px; font-weight:600}
+  .vBar button{flex:1; padding:11px 6px; border-radius:10px; border:0; font-size:13px; font-weight:600}
   .vClose{position:absolute; top:calc(10px + env(safe-area-inset-top)); right:14px; z-index:2;
     width:40px; height:40px; border-radius:50%; border:0; background:rgba(0,0,0,.5); color:#fff; font-size:20px}
   .vNav{
@@ -244,6 +244,7 @@
   .btnDl{background:var(--accent); color:#111}
   .btnDel{background:var(--danger); color:#fff}
   .btnShare{background:var(--accent2); color:#fff}
+  .btnEdit{background:var(--panel2); color:var(--txt); border:1px solid var(--line) !important}
   .toast{
     position:fixed; bottom:calc(20px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%);
     background:var(--ok); color:#062; padding:10px 18px; border-radius:20px; font-weight:700;
@@ -331,32 +332,6 @@
           </div>
         </div>
       </div>
-
-      <div id="numPad">
-        <div class="npValue" id="npValue">1</div>
-        <div class="npGrid">
-          <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
-          <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button>
-          <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button>
-        </div>
-        <div class="npLast">
-          <button data-key=".">.</button>
-          <button data-key="0">0</button>
-          <button data-key="-">−</button>
-          <button data-key="back">⌫</button>
-        </div>
-        <div class="npLetters" id="npLetters">
-          <button data-key="A">A</button><button data-key="B">B</button><button data-key="C">C</button><button data-key="D">D</button><button data-key="E">E</button><button data-key="F">F</button><button data-key="G">G</button>
-          <button data-key="H">H</button><button data-key="I">I</button><button data-key="J">J</button><button data-key="K">K</button><button data-key="L">L</button><button data-key="M">M</button><button data-key="N">N</button>
-          <button data-key="O">O</button><button data-key="P">P</button><button data-key="Q">Q</button><button data-key="R">R</button><button data-key="S">S</button><button data-key="T">T</button><button data-key="U">U</button>
-          <button data-key="V">V</button><button data-key="W">W</button><button data-key="X">X</button><button data-key="Y">Y</button><button data-key="Z">Z</button>
-          <button data-key=".">.</button><button data-key="-">−</button>
-        </div>
-        <div class="npActions">
-          <button type="button" id="npMode">ABC</button>
-          <button type="button" id="npDone">Fertig</button>
-        </div>
-      </div>
     </div>
   </section>
 
@@ -385,9 +360,36 @@
   <img id="vImg" alt="">
   <div class="vInfo" id="vInfo"></div>
   <div class="vBar">
+    <button class="btnEdit" id="vEdit">Nummer</button>
     <button class="btnShare" id="vShare">Teilen</button>
     <button class="btnDl" id="vDl">Speichern</button>
     <button class="btnDel" id="vDel">Löschen</button>
+  </div>
+</div>
+
+<div id="numPad">
+  <div class="npValue" id="npValue">1</div>
+  <div class="npGrid">
+    <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
+    <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button>
+    <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button>
+  </div>
+  <div class="npLast">
+    <button data-key=".">.</button>
+    <button data-key="0">0</button>
+    <button data-key="-">−</button>
+    <button data-key="back">⌫</button>
+  </div>
+  <div class="npLetters" id="npLetters">
+    <button data-key="A">A</button><button data-key="B">B</button><button data-key="C">C</button><button data-key="D">D</button><button data-key="E">E</button><button data-key="F">F</button><button data-key="G">G</button>
+    <button data-key="H">H</button><button data-key="I">I</button><button data-key="J">J</button><button data-key="K">K</button><button data-key="L">L</button><button data-key="M">M</button><button data-key="N">N</button>
+    <button data-key="O">O</button><button data-key="P">P</button><button data-key="Q">Q</button><button data-key="R">R</button><button data-key="S">S</button><button data-key="T">T</button><button data-key="U">U</button>
+    <button data-key="V">V</button><button data-key="W">W</button><button data-key="X">X</button><button data-key="Y">Y</button><button data-key="Z">Z</button>
+    <button data-key=".">.</button><button data-key="-">−</button>
+  </div>
+  <div class="npActions">
+    <button type="button" id="npMode">ABC</button>
+    <button type="button" id="npDone">Fertig</button>
   </div>
 </div>
 
@@ -618,42 +620,72 @@ document.querySelectorAll(".quick [data-range]").forEach(b=>{
 const camWrap=document.getElementById("camWrap");
 const numPad=document.getElementById("numPad");
 const numField=document.getElementById("numField");
-let replaceNext=true;
-function openNumPad(){
-  replaceNext=true;
-  camWrap.classList.add("pad-open");
+let padMode="capture";
+let padValue="";
+function padGet(){ return padMode==="photo"?padValue:numInput.value; }
+function padSet(v){
+  if(padMode==="photo"){
+    padValue=v;
+    document.getElementById("npValue").textContent=v.trim()||"–";
+  }else{
+    numInput.value=v;
+    updateOverlay();
+  }
+}
+function openNumPad(mode){
+  padMode=mode||"capture";
+  if(padMode==="photo"){
+    const r=cache.find(x=>x.id===currentId);
+    padValue=r?String(r.label||""):"";
+    document.getElementById("npValue").textContent=padValue.trim()||"–";
+  }else{
+    camWrap.classList.add("pad-open");
+    numField.classList.add("editing");
+    updateOverlay();
+  }
   numPad.classList.add("open");
-  numField.classList.add("editing");
-  updateOverlay();
 }
 function closeNumPad(){
   camWrap.classList.remove("pad-open");
   numPad.classList.remove("open","abc");
   numField.classList.remove("editing");
   document.getElementById("npMode").textContent="ABC";
+  padMode="capture";
 }
 function typeNum(key){
+  let v=padGet();
   if(key==="back"){
-    if(replaceNext){ numInput.value=""; replaceNext=false; }
-    else numInput.value=numInput.value.replace(/ - $/,"-").slice(0,-1);
+    v=v.slice(0,-1);
   }else if(key==="-" || key==="."){
-    if(replaceNext) replaceNext=false;
-    const v=numInput.value;
-    if(!v.length) return updateOverlay();
-    if(key==="-" && /[-–]/.test(v)) return updateOverlay();
-    if(key==="." && /[-.]$/.test(v)) return updateOverlay();
-    numInput.value+=key;
-  }else{
-    if(replaceNext){ numInput.value=key; replaceNext=false; }
-    else if(numInput.value.length<28) numInput.value+=key;
+    if(!v.length) return;
+    if(key==="-" && /[-–]/.test(v)) return;
+    if(key==="." && /[-.]$/.test(v)) return;
+    v+=key;
+  }else if(v.length<28){
+    v+=key;
   }
-  updateOverlay();
+  padSet(v);
 }
-numField.addEventListener("pointerdown", e=>{ e.preventDefault(); openNumPad(); });
+numField.addEventListener("pointerdown", e=>{ e.preventDefault(); openNumPad("capture"); });
 numPad.querySelectorAll("[data-key]").forEach(b=>{
   b.onclick=()=>typeNum(b.dataset.key);
 });
-document.getElementById("npDone").onclick=closeNumPad;
+document.getElementById("npDone").onclick=async()=>{
+  if(padMode==="photo"){
+    const r=cache.find(x=>x.id===currentId);
+    if(r){
+      try{
+        await applyLabelToRec(r, padGet());
+        toast("Nummer geändert: "+r.label);
+        openViewer(r.id);
+        loadGallery();
+      }catch(e){
+        toast("Ändern fehlgeschlagen",true);
+      }
+    }
+  }
+  closeNumPad();
+};
 document.getElementById("npMode").onclick=()=>{
   const on=numPad.classList.toggle("abc");
   document.getElementById("npMode").textContent=on?"123":"ABC";
@@ -965,6 +997,82 @@ function drawLabelBox(ctx, text, x, y, fs, color){
   return fs+pad*2;
 }
 
+function drawOverlays(ctx,vw,vh,opts){
+  const kind=opts.kind, label=opts.label, ort=opts.ort, pos=opts.pos;
+  const kindColor=kind==="Steckdose"?"#8a5cff":kind==="Verteilung"?"#37c871":"#2d7dff";
+  if(ort){
+    const ofs=Math.round(vh*0.028);
+    ctx.font="700 "+ofs+"px -apple-system,Arial,sans-serif";
+    ctx.textBaseline="top";
+    const pad=Math.round(ofs*0.45);
+    const tw=ctx.measureText(ort).width;
+    ctx.fillStyle="rgba(0,0,0,0.55)";
+    roundRect(ctx,pad,pad,tw+pad*2,ofs+pad*1.6,pad*0.5); ctx.fill();
+    ctx.fillStyle="#fff";
+    ctx.fillText(ort,pad*2,pad*1.4);
+  }
+  if(label){
+    const fs=Math.round(vh*0.055);
+    const pad=Math.round(fs*0.4);
+    const text=(KIND_SHORT[kind]||kind.charAt(0))+" "+label;
+    drawLabelBox(ctx, text, pad, vh-fs-pad*3, fs, kindColor);
+  }
+  if(pos){
+    const gfs=Math.round(vh*0.026);
+    const gpad=Math.round(gfs*0.5);
+    ctx.font="700 "+gfs+"px -apple-system,Arial,sans-serif";
+    ctx.textBaseline="bottom";
+    const gtext=pos.lat.toFixed(6)+", "+pos.lon.toFixed(6)+" (±"+Math.round(pos.acc)+"m)";
+    const gtw=ctx.measureText(gtext).width;
+    const gx=vw-gtw-gpad*3, gy=vh-gpad;
+    ctx.fillStyle="rgba(0,0,0,0.6)";
+    roundRect(ctx,gx,gy-gfs-gpad*2,gtw+gpad*2,gfs+gpad*2,gpad*0.6); ctx.fill();
+    ctx.fillStyle="#fff";
+    ctx.fillText(gtext,gx+gpad,gy-gpad*0.5);
+  }
+}
+function blobToImage(src){
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    const url=src instanceof Blob?URL.createObjectURL(src):src;
+    img.onload=()=>{ if(src instanceof Blob) URL.revokeObjectURL(url); res(img); };
+    img.onerror=()=>rej(new Error("bild"));
+    img.src=url;
+  });
+}
+async function applyLabelToRec(rec, newLabel){
+  newLabel=String(newLabel||"").trim()||"ohne";
+  const hasOrig=!!rec.orig;
+  const src=hasOrig?rec.orig:recBlob(rec);
+  const img=await blobToImage(src);
+  const vw=img.naturalWidth||img.width, vh=img.naturalHeight||img.height;
+  canvas.width=vw; canvas.height=vh;
+  const ctx=canvas.getContext("2d");
+  ctx.drawImage(img,0,0);
+  if(!hasOrig){
+    const fs=Math.round(vh*0.055);
+    const pad=Math.round(fs*0.4);
+    ctx.fillStyle="#111418";
+    roundRect(ctx, Math.max(0,pad-8), vh-fs-pad*5, Math.min(vw*0.85, vw-pad), fs+pad*5, pad);
+    ctx.fill();
+  }
+  const pos=rec.lat!=null?{lat:rec.lat, lon:rec.lon, acc:rec.acc}:null;
+  drawOverlays(ctx,vw,vh,{
+    kind:rec.kind,
+    label:newLabel==="ohne"?"":newLabel,
+    ort:hasOrig?(rec.ort||""):"",
+    pos:hasOrig?pos:null
+  });
+  const [blob, thumb]=await Promise.all([canvasToBlob(canvas,0.88), makeThumbBlob()]);
+  rec.label=newLabel;
+  rec.name=fileNameFor(rec.kind, safePart(newLabel,"ohne"), safePart(rec.ort||"",""));
+  rec.data=blob;
+  rec.thumb=thumb;
+  await dbAdd(rec);
+  const i=cache.findIndex(x=>x.id===rec.id);
+  if(i>=0) cache[i]=rec;
+}
+
 async function capture(){
   if(capturing) return;
   closeNumPad();
@@ -985,40 +1093,8 @@ async function capture(){
     const kind=currentKind;
     const ort=ortInput.value.trim();
     const pos=gpsOn?lastPos:null;
-    const kindColor=kind==="Steckdose"?"#8a5cff":kind==="Verteilung"?"#37c871":"#2d7dff";
-
-    if(ort){
-      const ofs=Math.round(vh*0.028);
-      ctx.font="700 "+ofs+"px -apple-system,Arial,sans-serif";
-      ctx.textBaseline="top";
-      const pad=Math.round(ofs*0.45);
-      const tw=ctx.measureText(ort).width;
-      ctx.fillStyle="rgba(0,0,0,0.55)";
-      roundRect(ctx,pad,pad,tw+pad*2,ofs+pad*1.6,pad*0.5); ctx.fill();
-      ctx.fillStyle="#fff";
-      ctx.fillText(ort,pad*2,pad*1.4);
-    }
-
-    if(label){
-      const fs=Math.round(vh*0.055);
-      const pad=Math.round(fs*0.4);
-      const text=KIND_SHORT[kind]+" "+label;
-      drawLabelBox(ctx, text, pad, vh-fs-pad*3, fs, kindColor);
-    }
-
-    if(pos && gpsOnPhoto){
-      const gfs=Math.round(vh*0.026);
-      const gpad=Math.round(gfs*0.5);
-      ctx.font="700 "+gfs+"px -apple-system,Arial,sans-serif";
-      ctx.textBaseline="bottom";
-      const gtext=pos.lat.toFixed(6)+", "+pos.lon.toFixed(6)+" (±"+Math.round(pos.acc)+"m)";
-      const gtw=ctx.measureText(gtext).width;
-      const gx=vw-gtw-gpad*3, gy=vh-gpad;
-      ctx.fillStyle="rgba(0,0,0,0.6)";
-      roundRect(ctx,gx,gy-gfs-gpad*2,gtw+gpad*2,gfs+gpad*2,gpad*0.6); ctx.fill();
-      ctx.fillStyle="#fff";
-      ctx.fillText(gtext,gx+gpad,gy-gpad*0.5);
-    }
+    const orig=await canvasToBlob(canvas,0.88);
+    drawOverlays(ctx,vw,vh,{kind, label, ort, pos:gpsOnPhoto?pos:null});
 
     const [blob, thumb]=await Promise.all([canvasToBlob(canvas,0.88), makeThumbBlob()]);
     const rec={
@@ -1027,7 +1103,7 @@ async function capture(){
       name:fileNameFor(kind, safePart(label,"ohne"), safePart(ort,"")),
       ts:Date.now(),
       lat:pos?pos.lat:null, lon:pos?pos.lon:null, acc:pos?pos.acc:null,
-      data:blob, thumb
+      data:blob, thumb, orig
     };
     await dbAdd(rec);
     flash();
@@ -1182,9 +1258,14 @@ function stepViewer(dir){
   const n=list[i+dir];
   if(n) openViewer(n.id);
 }
-document.getElementById("vClose").onclick=()=>{viewer.classList.remove("active"); currentId=null};
+document.getElementById("vClose").onclick=()=>{ closeNumPad(); viewer.classList.remove("active"); currentId=null};
 document.getElementById("vPrev").onclick=()=>stepViewer(-1);
 document.getElementById("vNext").onclick=()=>stepViewer(1);
+document.getElementById("vEdit").onclick=()=>openNumPad("photo");
+vInfo.addEventListener("click", e=>{
+  if(e.target.closest("a")) return;
+  openNumPad("photo");
+});
 document.getElementById("vDl").onclick=()=>{
   const r=cache.find(x=>x.id===currentId); if(!r) return;
   downloadRec(r);
@@ -1208,6 +1289,7 @@ document.getElementById("vShare").onclick=async()=>{
 let swipeX=0;
 viewer.addEventListener("touchstart", e=>{ swipeX=e.changedTouches[0].clientX; }, {passive:true});
 viewer.addEventListener("touchend", e=>{
+  if(numPad.classList.contains("open")) return;
   const dx=e.changedTouches[0].clientX-swipeX;
   if(Math.abs(dx)>60) stepViewer(dx<0?1:-1);
 }, {passive:true});
@@ -1299,19 +1381,19 @@ document.addEventListener("keydown", e=>{
     if(e.key==="Escape") document.getElementById("settings").classList.remove("open");
     return;
   }
-  if(viewer.classList.contains("active")){
-    if(e.key==="ArrowLeft") stepViewer(-1);
-    if(e.key==="ArrowRight") stepViewer(1);
-    if(e.key==="Escape") {viewer.classList.remove("active"); currentId=null;}
-    return;
-  }
   if(numPad.classList.contains("open")){
     if(e.key>="0" && e.key<="9") { e.preventDefault(); typeNum(e.key); }
     else if(/^[a-zA-Z]$/.test(e.key)) { e.preventDefault(); typeNum(e.key.toUpperCase()); }
     else if(e.key==="Backspace") { e.preventDefault(); typeNum("back"); }
     else if(e.key==="-" || e.key==="Minus") { e.preventDefault(); typeNum("-"); }
     else if(e.key==="." || e.key==="," || e.key==="Decimal") { e.preventDefault(); typeNum("."); }
-    else if(e.key==="Enter" || e.key==="Escape") { e.preventDefault(); closeNumPad(); }
+    else if(e.key==="Enter" || e.key==="Escape") { e.preventDefault(); document.getElementById("npDone").click(); }
+    return;
+  }
+  if(viewer.classList.contains("active")){
+    if(e.key==="ArrowLeft") stepViewer(-1);
+    if(e.key==="ArrowRight") stepViewer(1);
+    if(e.key==="Escape") {viewer.classList.remove("active"); currentId=null;}
     return;
   }
   const typing=document.activeElement===ortInput;

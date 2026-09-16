@@ -1,4 +1,4 @@
-const CACHE="rundgang-v7";
+const CACHE="rundgang-v8";
 const ASSETS=["./","./index.html","./manifest.json","./icon.svg"];
 
 self.addEventListener("install",e=>{
