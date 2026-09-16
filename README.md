@@ -11,6 +11,7 @@ Kleine Web-App für den Campus-Rundgang. Du fotografierst Leuchten oder Steckdos
 - Umschalten zwischen Leuchte und Steckdose
 - Auto +1: nach jedem Foto zählt die Nummer automatisch weiter
 - Schnellbereiche 1-3, 1-5, 1-10 und ein Bereich-Knopf (macht aus 3 den Bereich 3-7)
+- Standort (GPS) pro Foto: Koordinaten werden gespeichert, unten rechts ins Bild gebrannt und in der Galerie als Karten-Link (Google Maps) angezeigt. Schalter zum Ausschalten, Statusanzeige mit Genauigkeit.
 - Galerie mit allen Fotos, gespeichert im Browser (IndexedDB, offline verfügbar)
 - Einzelnes Foto speichern, teilen oder löschen
 - Alle Fotos gesammelt teilen oder herunterladen
@@ -32,5 +33,6 @@ Kleine Web-App für den Campus-Rundgang. Du fotografierst Leuchten oder Steckdos
 
 ## Hinweise
 
+- Für GPS musst du den Standortzugriff im Browser erlauben. Der erste Fix im Freien dauert wenige Sekunden, drinnen ist er ungenauer. Die Statusanzeige zeigt die Genauigkeit in Metern.
 - Die Fotos liegen nur lokal im Browser. Lösche die Browserdaten nicht, bevor du sie exportiert hast.
 - Zum Sichern: in der Galerie "Alle laden" nutzen und die Bilder ins Fotoalbum oder in einen Ordner übernehmen.

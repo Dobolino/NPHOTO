@@ -75,6 +75,10 @@
   label.hint{font-size:12px; color:var(--muted); margin-bottom:-6px}
   .toggle{display:flex; align-items:center; gap:8px; font-size:14px; color:var(--muted)}
   .toggle input{width:20px; height:20px; accent-color:var(--accent)}
+  .gpsStatus{margin-left:auto; font-size:12px; font-weight:600; padding:2px 8px; border-radius:8px; background:var(--panel2); border:1px solid var(--line)}
+  .gpsStatus.ok{color:var(--ok); border-color:var(--ok)}
+  .gpsStatus.wait{color:var(--accent)}
+  .gpsStatus.err{color:var(--danger); border-color:var(--danger)}
   .shootRow{display:flex; align-items:center; gap:16px; justify-content:center}
   .shoot{
     width:74px; height:74px; border-radius:50%; border:5px solid var(--accent);
@@ -171,6 +175,12 @@
       <label class="toggle">
         <input type="checkbox" id="autoInc" checked>
         Nummer nach dem Foto automatisch +1
+      </label>
+
+      <label class="toggle">
+        <input type="checkbox" id="gpsToggle" checked>
+        Standort aufnehmen (GPS)
+        <span id="gpsStatus" class="gpsStatus">…</span>
       </label>
 
       <div class="shootRow">
@@ -345,6 +355,40 @@ document.getElementById("flip").onclick=()=>{
   startCamera();
 };
 
+/* ---------- Standort (GPS) ---------- */
+const gpsToggle=document.getElementById("gpsToggle");
+const gpsStatus=document.getElementById("gpsStatus");
+let lastPos=null;      // {lat,lon,acc,ts}
+let watchId=null;
+
+function setGpsStatus(cls,txt){
+  gpsStatus.className="gpsStatus "+cls;
+  gpsStatus.textContent=txt;
+}
+function startGps(){
+  if(!navigator.geolocation){setGpsStatus("err","kein GPS"); return}
+  if(watchId!=null) return;
+  setGpsStatus("wait","suche…");
+  watchId=navigator.geolocation.watchPosition(
+    p=>{
+      lastPos={lat:p.coords.latitude, lon:p.coords.longitude, acc:p.coords.accuracy, ts:Date.now()};
+      setGpsStatus("ok","±"+Math.round(p.coords.accuracy)+"m");
+    },
+    err=>{
+      if(err.code===1) setGpsStatus("err","verweigert");
+      else setGpsStatus("err","kein Fix");
+    },
+    {enableHighAccuracy:true, maximumAge:5000, timeout:15000}
+  );
+}
+function stopGps(){
+  if(watchId!=null){navigator.geolocation.clearWatch(watchId); watchId=null}
+}
+gpsToggle.onchange=()=>{
+  if(gpsToggle.checked){startGps();}
+  else{stopGps(); setGpsStatus("","aus"); lastPos=null;}
+};
+
 /* ---------- Foto aufnehmen + Nummer einbrennen ---------- */
 async function capture(){
   if(!stream){toast("Keine Kamera",true); return}
@@ -357,6 +401,9 @@ async function capture(){
 
   const label=numInput.value.trim();
   const kind=currentKind;
+
+  // Standort abgreifen (aktuellster Wert)
+  const pos=gpsToggle.checked?lastPos:null;
 
   // Label ins Bild brennen
   if(label){
@@ -379,18 +426,34 @@ async function capture(){
     ctx.fillText(text,bx+pad,by+pad);
   }
 
+  // Koordinaten unten rechts einbrennen
+  if(pos){
+    const gfs=Math.round(vh*0.028);
+    const gpad=Math.round(gfs*0.5);
+    ctx.font="700 "+gfs+"px -apple-system,Arial,sans-serif";
+    ctx.textBaseline="bottom";
+    const gtext="\u{1F4CD} "+pos.lat.toFixed(6)+", "+pos.lon.toFixed(6)+" (±"+Math.round(pos.acc)+"m)";
+    const gtw=ctx.measureText(gtext).width;
+    const gx=vw-gtw-gpad*2-gpad, gy=vh-gpad;
+    ctx.fillStyle="rgba(0,0,0,0.6)";
+    roundRect(ctx,gx,gy-gfs-gpad*2,gtw+gpad*2,gfs+gpad*2,gpad*0.6); ctx.fill();
+    ctx.fillStyle="#fff";
+    ctx.fillText(gtext,gx+gpad,gy-gpad*0.5);
+  }
+
   const dataUrl=canvas.toDataURL("image/jpeg",0.9);
   const rec={
     id:Date.now()+"_"+Math.random().toString(36).slice(2,7),
     kind, label:label||"ohne",
     name:fileNameFor(kind,safeLabel()),
     ts:Date.now(),
+    lat:pos?pos.lat:null, lon:pos?pos.lon:null, acc:pos?pos.acc:null,
     data:dataUrl
   };
   try{
     await dbAdd(rec);
     flash();
-    toast("Gespeichert: "+rec.label);
+    toast("Gespeichert: "+rec.label+(gpsToggle.checked?(pos?" \u{1F4CD}":" (kein GPS)"):""),gpsToggle.checked&&!pos);
     if(autoInc.checked) incInput(1);
     refreshCount();
   }catch(e){
@@ -432,7 +495,8 @@ async function loadGallery(){
     c.innerHTML=
       '<span class="badge '+kindCls+'">'+r.kind+'</span>'+
       '<img loading="lazy" src="'+r.data+'">'+
-      '<div class="meta"><b>'+escapeHtml(r.label)+'</b><small>'+fmtDate(r.ts)+'</small></div>';
+      '<div class="meta"><b>'+escapeHtml(r.label)+'</b><small>'+fmtDate(r.ts)+
+        (r.lat!=null?' \u{1F4CD}':'')+'</small></div>';
     c.querySelector("img").onclick=()=>openViewer(r.id);
     galleryEl.appendChild(c);
   }
@@ -451,7 +515,15 @@ function openViewer(id){
   const r=cache.find(x=>x.id===id); if(!r) return;
   currentId=id;
   vImg.src=r.data;
-  vInfo.textContent=r.kind+" "+r.label+" · "+r.name;
+  let info=r.kind+" "+r.label+" · "+r.name;
+  if(r.lat!=null){
+    const q=r.lat.toFixed(6)+","+r.lon.toFixed(6);
+    vInfo.innerHTML=escapeHtml(info)+'<br><a href="https://www.google.com/maps?q='+q+
+      '" target="_blank" rel="noopener" style="color:var(--accent)">\u{1F4CD} '+q+
+      ' (±'+Math.round(r.acc)+'m)</a>';
+  }else{
+    vInfo.textContent=info;
+  }
   viewer.classList.add("active");
 }
 document.getElementById("vClose").onclick=()=>{viewer.classList.remove("active"); currentId=null};
@@ -534,6 +606,7 @@ document.querySelectorAll(".tab").forEach(t=>{
   updateOverlay();
   try{ await openDB(); }catch(e){ toast("Speicher nicht verfügbar",true); }
   refreshCount();
+  if(gpsToggle.checked) startGps();
   await startCamera();
   if("serviceWorker" in navigator){
     navigator.serviceWorker.register("sw.js").catch(()=>{});
@@ -541,8 +614,11 @@ document.querySelectorAll(".tab").forEach(t=>{
 })();
 
 document.addEventListener("visibilitychange",()=>{
-  if(document.hidden) stopCamera();
-  else if(document.getElementById("camera").classList.contains("active")) startCamera();
+  if(document.hidden){ stopCamera(); stopGps(); }
+  else{
+    if(document.getElementById("camera").classList.contains("active")) startCamera();
+    if(gpsToggle.checked) startGps();
+  }
 });
 </script>
 </body>
