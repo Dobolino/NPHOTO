@@ -380,8 +380,14 @@
         <small>Wenn aus, wird GPS trotzdem gespeichert (Galerie, Karte, CSV), aber nicht ins Bild gebrannt.</small>
       </span>
     </label>
-    <p class="setRow" style="display:block;color:var(--muted);font-size:12px;border-bottom:0">
-      Zoom nutzt die echten Kameras des Handys (z. B. 0,5× Ultraweitwinkel, 1×, 2× Tele), soweit der Browser sie freigibt. Umschalten geht über die gelben Zoom-Knöpfe links im Sucher.
+    <label class="setRow">
+      <input type="checkbox" id="keepAccessToggle" checked>
+      <span>Kamera und GPS nur einmal freigeben
+        <small>Zugriff bleibt aktiv, auch in der Galerie und wenn du kurz die App verlässt. So fragt der Browser nicht jedes Mal neu.</small>
+      </span>
+    </label>
+    <p class="setRow" id="permHint" style="display:block;color:var(--muted);font-size:12px;border-bottom:0">
+      Auf dem iPhone: Bei der Abfrage <b>Erlauben</b> tippen, nicht «Nur einmal». Danach Safari → Zum Home-Bildschirm, dann merkt sich das Handy die Freigabe.
     </p>
     <button type="button" id="settingsClose">Fertig</button>
   </div>
@@ -412,6 +418,7 @@ let backCams=[];
 let autoInc=true;
 let gpsOn=true;
 let gpsOnPhoto=true;
+let keepAccess=true;
 let lastPos=null;
 let watchId=null;
 let wakeLock=null;
@@ -464,6 +471,7 @@ const zoomBar=document.getElementById("zoomBar");
 const lastThumbBtn=document.getElementById("lastThumb");
 const shootBtn=document.getElementById("shoot");
 const gpsPhotoToggle=document.getElementById("gpsPhotoToggle");
+const keepAccessToggle=document.getElementById("keepAccessToggle");
 
 function toast(msg,isErr){
   toastEl.textContent=msg;
@@ -494,7 +502,7 @@ function saveSettings(){
   kindNums[currentKind]=numInput.value;
   try{
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({
-      kind:currentKind, nums:kindNums, autoInc, gpsOn, gpsOnPhoto, facingMode,
+      kind:currentKind, nums:kindNums, autoInc, gpsOn, gpsOnPhoto, keepAccess, facingMode,
       ort:ortInput.value, lastId, desiredZoom
     }));
   }catch(e){}
@@ -508,6 +516,7 @@ function loadSettings(){
     if(typeof s.autoInc==="boolean") autoInc=s.autoInc;
     if(typeof s.gpsOn==="boolean") gpsOn=s.gpsOn;
     if(typeof s.gpsOnPhoto==="boolean") gpsOnPhoto=s.gpsOnPhoto;
+    if(typeof s.keepAccess==="boolean") keepAccess=s.keepAccess;
     if(s.facingMode) facingMode=s.facingMode;
     if(typeof s.ort==="string") ortInput.value=s.ort;
     if(s.lastId) lastId=s.lastId;
@@ -808,13 +817,33 @@ async function setZoom(z){
   await applyDesiredZoom(true);
 }
 
+function cameraIsLive(){
+  const t=stream&&stream.getVideoTracks()[0];
+  return !!(t && t.readyState==="live");
+}
+function cameraMatches(deviceId){
+  if(!cameraIsLive()) return false;
+  const t=stream.getVideoTracks()[0];
+  const s=typeof t.getSettings==="function"?t.getSettings():{};
+  if(deviceId) return s.deviceId===deviceId;
+  if(s.facingMode) return s.facingMode===facingMode;
+  return true;
+}
+
 async function startCamera(deviceId){
-  stopCamera();
+  if(cameraMatches(deviceId||null)){
+    if(video.srcObject!==stream) video.srcObject=stream;
+    camError.style.display="none";
+    await video.play().catch(()=>{});
+    return;
+  }
   try{
     const videoCon={width:{ideal:1920}, height:{ideal:2560}};
     if(deviceId) videoCon.deviceId={exact:deviceId};
     else videoCon.facingMode={ideal:facingMode};
-    stream=await navigator.mediaDevices.getUserMedia({video:videoCon, audio:false});
+    const next=await navigator.mediaDevices.getUserMedia({video:videoCon, audio:false});
+    if(stream) stream.getTracks().forEach(t=>t.stop());
+    stream=next;
     video.srcObject=stream;
     camError.style.display="none";
     await video.play().catch(()=>{});
@@ -831,8 +860,10 @@ async function startCamera(deviceId){
     if(torchOn && torchAvailable) applyTorch(true);
     await applyDesiredZoom(false);
   }catch(err){
-    camError.style.display="flex";
-    camError.textContent="Kamera nicht verfügbar ("+err.name+"). Erlaube den Zugriff und lade neu. iPhone: Safari + HTTPS.";
+    if(!cameraIsLive()){
+      camError.style.display="flex";
+      camError.textContent="Kamera nicht verfügbar ("+err.name+"). Bitte «Erlauben» tippen, nicht «Nur einmal». iPhone: Safari + HTTPS, am besten zum Home-Bildschirm legen.";
+    }
   }
 }
 function stopCamera(){
@@ -1030,7 +1061,7 @@ lastThumbBtn.onclick=async()=>{
     document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
     document.querySelector('.tab[data-view="galleryView"]').classList.add("active");
     document.getElementById("galleryView").classList.add("active");
-    stopCamera();
+    if(!keepAccess) stopCamera();
     await loadGallery();
     openViewer(lastId);
   }
@@ -1229,7 +1260,7 @@ document.querySelectorAll(".tab").forEach(t=>{
     document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
     t.classList.add("active");
     document.getElementById(t.dataset.view).classList.add("active");
-    if(t.dataset.view==="galleryView"){ stopCamera(); loadGallery(); }
+    if(t.dataset.view==="galleryView"){ if(!keepAccess) stopCamera(); loadGallery(); }
     if(t.dataset.view==="camera") startCamera();
   };
 });
@@ -1267,6 +1298,12 @@ document.addEventListener("keydown", e=>{
 
 document.getElementById("settingsBtn").onclick=()=>{
   gpsPhotoToggle.checked=gpsOnPhoto;
+  keepAccessToggle.checked=keepAccess;
+  const hint=document.getElementById("permHint");
+  const home=window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone===true;
+  hint.innerHTML=home
+    ? "Die App läuft auf dem Home-Bildschirm. Einmal <b>Erlauben</b> reicht in der Regel für Kamera und Standort."
+    : "Auf dem iPhone: Bei der Abfrage <b>Erlauben</b> tippen, nicht «Nur einmal». Danach im Teilen-Menü <b>Zum Home-Bildschirm</b> — dann merkt sich das Handy die Freigabe.";
   document.getElementById("settings").classList.add("open");
 };
 document.getElementById("settingsClose").onclick=()=>document.getElementById("settings").classList.remove("open");
@@ -1274,14 +1311,21 @@ document.getElementById("settings").onclick=e=>{
   if(e.target.id==="settings") e.currentTarget.classList.remove("open");
 };
 gpsPhotoToggle.onchange=()=>{ gpsOnPhoto=gpsPhotoToggle.checked; saveSettings(); };
+keepAccessToggle.onchange=()=>{
+  keepAccess=keepAccessToggle.checked;
+  saveSettings();
+  if(!keepAccess && !document.getElementById("camera").classList.contains("active")) stopCamera();
+};
 
 (async function init(){
   loadSettings();
   setKind(currentKind);
   autoIncBtn.classList.toggle("on", autoInc);
   gpsPhotoToggle.checked=gpsOnPhoto;
+  keepAccessToggle.checked=keepAccess;
   if(!gpsOn) setGpsStatus("","GPS aus");
   try{ await openDB(); }catch(e){ toast("Speicher nicht verfügbar",true); }
+  try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist(); }catch(e){}
   refreshCount();
   try{
     const all=(await dbAll()||[]).sort((a,b)=>b.ts-a.ts);
@@ -1298,13 +1342,21 @@ gpsPhotoToggle.onchange=()=>{ gpsOnPhoto=gpsPhotoToggle.checked; saveSettings();
 
 document.addEventListener("visibilitychange",()=>{
   if(document.hidden){
-    stopCamera();
-    stopGps();
+    if(!keepAccess){
+      stopCamera();
+      stopGps();
+    }
     if(wakeLock){ try{ wakeLock.release(); }catch(e){} wakeLock=null; }
   }else{
     requestWake();
-    if(document.getElementById("camera").classList.contains("active")) startCamera();
-    if(gpsOn) startGps();
+    if(keepAccess){
+      if(cameraIsLive()) video.play().catch(()=>{});
+      else startCamera();
+      if(gpsOn) startGps();
+    }else{
+      if(document.getElementById("camera").classList.contains("active")) startCamera();
+      if(gpsOn) startGps();
+    }
   }
 });
 </script>

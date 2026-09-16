@@ -14,7 +14,7 @@ Kleine Web-App für den Campus-Rundgang. Du fotografierst Leuchten, Steckdosen o
 - Auto +1: nach einem Einzelbild +1, nach einem Bereich der nächste Block (1-5 → 6-10)
 - Schnellbereiche 1-3, 1-5, 1-10 und +5
 - Zoom über die echten Kameras des Handys (0,5× / 1× / 2×), soweit verfügbar
-- Einstellung: Standort auf das Foto schreiben ein/aus (GPS kann trotzdem gespeichert werden)
+- Einstellung: Kamera und GPS nur einmal freigeben (Zugriff bleibt aktiv, weniger erneute Abfragen). Auf dem iPhone «Erlauben» tippen und die App zum Home-Bildschirm legen.
 - Standort (GPS) pro Foto: Koordinaten werden gespeichert, ins Bild gebrannt und in der Galerie als Karten-Link angezeigt
 - Galerie mit Filter, Teilen, CSV-Liste (Art, Nummer, Ort, GPS) und Löschen
 - Letztes Foto rückgängig (kurz nach der Aufnahme)
