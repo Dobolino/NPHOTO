@@ -34,6 +34,10 @@
     border-bottom:1px solid var(--line); background:var(--panel); flex:none;
   }
   header h1{font-size:15px; margin:0; font-weight:600; flex:1}
+  .headBtn{
+    width:36px; height:36px; border-radius:18px; border:1px solid var(--line);
+    background:var(--panel2); font-size:16px; flex:none;
+  }
   .tabs{display:flex; gap:6px}
   .tab{
     border:1px solid var(--line); background:var(--panel2); color:var(--muted);
@@ -85,10 +89,15 @@
   .kindBtn[data-kind="Leuchte"].active{background:var(--accent2); color:#fff; border-color:var(--accent2)}
   .kindBtn[data-kind="Steckdose"].active{background:var(--steck); color:#fff; border-color:var(--steck)}
   .kindBtn[data-kind="Verteilung"].active{background:var(--vert); color:#083018; border-color:var(--vert)}
-  #zoomBtn{
-    width:40px; height:40px; border-radius:20px; border:1px solid rgba(255,255,255,.2);
-    background:rgba(0,0,0,.55); color:#fff; font-size:12px; font-weight:800; flex:none;
+  #zoomBar{
+    position:absolute; left:8px; top:42%; z-index:3;
+    display:flex; flex-direction:column; gap:6px;
   }
+  #zoomBar button{
+    width:40px; height:40px; border-radius:20px; border:1px solid rgba(255,255,255,.22);
+    background:rgba(0,0,0,.55); color:#fff; font-size:12px; font-weight:800;
+  }
+  #zoomBar button.on{background:var(--accent); color:#111; border-color:var(--accent)}
   #ortInput{
     flex:1; min-width:0; background:rgba(35,42,51,.82); border:1px solid rgba(255,255,255,.18);
     border-radius:9px; color:var(--txt); font-size:13px; padding:7px 8px;
@@ -172,6 +181,7 @@
   #camWrap.pad-open .hudBottom .hudRow,
   #camWrap.pad-open .hudBottom .shootRow{visibility:hidden}
   #camWrap.pad-open .hudBottom{background:transparent}
+  #camWrap.pad-open #zoomBar{visibility:hidden}
   @media (max-height:640px){
     .shoot{width:52px; height:52px}
     .npGrid button, .npLast button{height:40px; font-size:18px}
@@ -192,7 +202,7 @@
   #gallery{padding:12px; display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px;
     overflow-y:auto; flex:1; min-height:0; -webkit-overflow-scrolling:touch;
     align-content:start; align-items:start}
-  .card{background:var(--panel2); border:1px solid var(--line); border-radius:12px; overflow:hidden; position:relative}
+  .card{background:var(--panel2); border:1px solid var(--line); border-radius:12px; overflow:hidden; position:relative; align-self:start; width:100%}
   .card img{width:100%; aspect-ratio:3/4; object-fit:cover; display:block}
   .card .meta{padding:6px 8px; font-size:12px}
   .card .meta b{color:var(--accent)}
@@ -230,11 +240,32 @@
     font-size:14px; z-index:80; opacity:0; transition:opacity .2s; pointer-events:none; max-width:90vw}
   .toast.show{opacity:1}
   .toast.err{background:var(--danger); color:#fff}
+  #settings{
+    position:fixed; inset:0; z-index:70; display:none; align-items:flex-end; justify-content:center;
+    background:rgba(0,0,0,.55);
+  }
+  #settings.open{display:flex}
+  #settings .sheet{
+    width:100%; max-width:520px; background:var(--panel);
+    border-radius:18px 18px 0 0; padding:8px 16px calc(16px + env(safe-area-inset-bottom));
+  }
+  #settings h2{font-size:16px; margin:8px 0 4px}
+  .setRow{
+    display:flex; align-items:flex-start; gap:12px; padding:12px 0;
+    border-top:1px solid var(--line); font-size:15px;
+  }
+  .setRow input{width:22px; height:22px; accent-color:var(--accent); flex:none; margin-top:1px}
+  .setRow small{display:block; color:var(--muted); font-size:12px; margin-top:4px; font-weight:400}
+  #settingsClose{
+    width:100%; margin-top:8px; padding:12px; border:0; border-radius:12px;
+    background:var(--accent); color:#111; font-size:15px; font-weight:800;
+  }
 </style>
 </head>
 <body>
 <header>
   <h1>Rundgang</h1>
+  <button type="button" class="headBtn" id="settingsBtn" title="Einstellungen">⚙</button>
   <div class="tabs">
     <button class="tab active" data-view="camera">Kamera</button>
     <button class="tab" data-view="galleryView">Galerie</button>
@@ -255,12 +286,12 @@
             <button class="kindBtn" data-kind="Steckdose">Steckdose</button>
             <button class="kindBtn" data-kind="Verteilung">Verteilung</button>
           </div>
-          <button id="zoomBtn" title="Zoom">1×</button>
         </div>
         <div class="hudRow">
           <input id="ortInput" type="text" placeholder="Ort / Gebäude (optional)" autocomplete="off" maxlength="40" enterkeyhint="done">
         </div>
       </div>
+      <div id="zoomBar"></div>
 
       <div class="hudBottom">
         <div id="overlayLabel" class="leuchte">L 1</div>
@@ -340,6 +371,22 @@
   </div>
 </div>
 
+<div id="settings">
+  <div class="sheet">
+    <h2>Einstellungen</h2>
+    <label class="setRow">
+      <input type="checkbox" id="gpsPhotoToggle" checked>
+      <span>Standort auf das Foto schreiben
+        <small>Wenn aus, wird GPS trotzdem gespeichert (Galerie, Karte, CSV), aber nicht ins Bild gebrannt.</small>
+      </span>
+    </label>
+    <p class="setRow" style="display:block;color:var(--muted);font-size:12px;border-bottom:0">
+      Zoom nutzt die echten Kameras des Handys (z. B. 0,5× Ultraweitwinkel, 1×, 2× Tele), soweit der Browser sie freigibt. Umschalten geht über die gelben Zoom-Knöpfe links im Sucher.
+    </p>
+    <button type="button" id="settingsClose">Fertig</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 <canvas id="canvas" style="display:none"></canvas>
 <canvas id="thumbCanvas" style="display:none"></canvas>
@@ -350,7 +397,6 @@
 const DB_NAME="rundgangDB", STORE="photos", SETTINGS_KEY="rundgangSettings";
 const KIND_CLS={Leuchte:"leuchte", Steckdose:"steckdose", Verteilung:"verteilung"};
 const KIND_SHORT={Leuchte:"L", Steckdose:"S", Verteilung:"V"};
-const ZOOM_STEPS=[1, 1.5, 2, 3];
 
 let db;
 let currentKind="Leuchte";
@@ -359,9 +405,13 @@ let stream=null;
 let capturing=false;
 let torchOn=false;
 let torchAvailable=false;
-let zoomIdx=0;
+let desiredZoom=1;
+let digitalZoom=1;
+let zoomCaps=null;
+let backCams=[];
 let autoInc=true;
 let gpsOn=true;
+let gpsOnPhoto=true;
 let lastPos=null;
 let watchId=null;
 let wakeLock=null;
@@ -410,9 +460,10 @@ const toastEl=document.getElementById("toast");
 const gpsBtn=document.getElementById("gpsBtn");
 const autoIncBtn=document.getElementById("autoIncBtn");
 const torchBtn=document.getElementById("torch");
-const zoomBtn=document.getElementById("zoomBtn");
+const zoomBar=document.getElementById("zoomBar");
 const lastThumbBtn=document.getElementById("lastThumb");
 const shootBtn=document.getElementById("shoot");
+const gpsPhotoToggle=document.getElementById("gpsPhotoToggle");
 
 function toast(msg,isErr){
   toastEl.textContent=msg;
@@ -443,8 +494,8 @@ function saveSettings(){
   kindNums[currentKind]=numInput.value;
   try{
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({
-      kind:currentKind, nums:kindNums, autoInc, gpsOn, facingMode,
-      ort:ortInput.value, lastId
+      kind:currentKind, nums:kindNums, autoInc, gpsOn, gpsOnPhoto, facingMode,
+      ort:ortInput.value, lastId, desiredZoom
     }));
   }catch(e){}
 }
@@ -456,9 +507,11 @@ function loadSettings(){
     if(s.kind && KIND_SHORT[s.kind]) currentKind=s.kind;
     if(typeof s.autoInc==="boolean") autoInc=s.autoInc;
     if(typeof s.gpsOn==="boolean") gpsOn=s.gpsOn;
+    if(typeof s.gpsOnPhoto==="boolean") gpsOnPhoto=s.gpsOnPhoto;
     if(s.facingMode) facingMode=s.facingMode;
     if(typeof s.ort==="string") ortInput.value=s.ort;
     if(s.lastId) lastId=s.lastId;
+    if(typeof s.desiredZoom==="number") desiredZoom=s.desiredZoom;
   }catch(e){}
 }
 
@@ -647,30 +700,136 @@ function refreshTrackFeatures(){
 }
 torchBtn.onclick=()=>applyTorch(!torchOn);
 
-function currentZoom(){ return ZOOM_STEPS[zoomIdx]||1; }
-function applyZoomPreview(){
-  const z=currentZoom();
-  video.style.transform="scale("+z+")";
-  zoomBtn.textContent=String(z).replace(".",",")+"×";
+function fmtZoom(z){ return String(z).replace(".",",")+"×"; }
+function classifyCam(label){
+  const l=(label||"").toLowerCase();
+  if(/front|user|face|vorne|selfie/.test(l)) return {side:"user", kind:"front", factor:1};
+  if(/ultra|ultrawide|ultra-wide|ultra wide/.test(l)) return {side:"environment", kind:"uw", factor:0.5};
+  if(/tele/.test(l)){
+    const m=l.match(/(\d+(?:\.\d+)?)\s*[x×]/);
+    return {side:"environment", kind:"tele", factor:m?parseFloat(m[1]):2};
+  }
+  if(/dual|triple/.test(l)) return {side:"environment", kind:"multi", factor:1};
+  return {side:"environment", kind:"wide", factor:1};
 }
-zoomBtn.onclick=()=>{
-  zoomIdx=(zoomIdx+1)%ZOOM_STEPS.length;
-  applyZoomPreview();
-};
+async function listCams(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.enumerateDevices) return [];
+  const all=await navigator.mediaDevices.enumerateDevices();
+  return all.filter(d=>d.kind==="videoinput").map(d=>{
+    const c=classifyCam(d.label);
+    return {id:d.deviceId, label:d.label, ...c};
+  });
+}
+function buildStops(){
+  const stops=new Set([1]);
+  if(facingMode==="environment"){
+    if(zoomCaps){
+      if(zoomCaps.min<=0.6) stops.add(0.5);
+      if(zoomCaps.max>=1.8) stops.add(2);
+      if(zoomCaps.max>=2.8) stops.add(3);
+    }
+    backCams.forEach(c=>{
+      if(c.kind==="uw") stops.add(0.5);
+      if(c.kind==="tele") stops.add(c.factor>=2.6?3:2);
+    });
+  }
+  if(stops.size===1) stops.add(2);
+  return [...stops].sort((a,b)=>a-b);
+}
+function pickDeviceForZoom(factor){
+  if(facingMode!=="environment") return null;
+  if(factor<=0.6){
+    if(zoomCaps && zoomCaps.min<=0.6) return null;
+    return backCams.find(c=>c.kind==="uw")||null;
+  }
+  if(factor>=1.8){
+    if(zoomCaps && zoomCaps.max>=factor-0.15) return null;
+    const tele=backCams.find(c=>c.kind==="tele" && Math.abs(c.factor-factor)<0.6)
+      || backCams.find(c=>c.kind==="tele");
+    return tele||null;
+  }
+  const cur=stream&&stream.getVideoTracks()[0];
+  const sid=cur&&cur.getSettings?cur.getSettings().deviceId:"";
+  const current=backCams.find(c=>c.id===sid);
+  if(current && (current.kind==="uw" || current.kind==="tele")){
+    return backCams.find(c=>c.kind==="multi")||backCams.find(c=>c.kind==="wide")||null;
+  }
+  return null;
+}
+function renderZoomBar(){
+  const stops=buildStops();
+  zoomBar.innerHTML="";
+  for(const z of stops){
+    const b=document.createElement("button");
+    b.type="button";
+    b.textContent=fmtZoom(z);
+    if(Math.abs(z-desiredZoom)<0.05) b.className="on";
+    b.onclick=()=>setZoom(z);
+    zoomBar.appendChild(b);
+  }
+}
+async function applyHwZoom(z){
+  const track=stream&&stream.getVideoTracks()[0];
+  if(!track||!zoomCaps) return false;
+  try{ await track.applyConstraints({zoom:z}); return true; }
+  catch(e){
+    try{ await track.applyConstraints({advanced:[{zoom:z}]}); return true; }
+    catch(e2){ return false; }
+  }
+}
+function applyDigitalPreview(){
+  video.style.transform=digitalZoom>1.01?"scale("+digitalZoom+")":"";
+}
+async function applyDesiredZoom(allowSwitch){
+  if(!stream) return;
+  if(allowSwitch){
+    const want=pickDeviceForZoom(desiredZoom);
+    const track=stream.getVideoTracks()[0];
+    const sid=track&&track.getSettings?track.getSettings().deviceId:"";
+    if(want && want.id && want.id!==sid){
+      await startCamera(want.id);
+      return;
+    }
+  }
+  digitalZoom=1;
+  if(zoomCaps){
+    const hw=Math.min(zoomCaps.max, Math.max(zoomCaps.min, desiredZoom));
+    await applyHwZoom(hw);
+    if(desiredZoom>zoomCaps.max+0.05) digitalZoom=desiredZoom/zoomCaps.max;
+  }else if(desiredZoom>1){
+    digitalZoom=desiredZoom;
+  }
+  applyDigitalPreview();
+  renderZoomBar();
+}
+async function setZoom(z){
+  desiredZoom=z;
+  saveSettings();
+  await applyDesiredZoom(true);
+}
 
-async function startCamera(){
+async function startCamera(deviceId){
   stopCamera();
   try{
-    stream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:{ideal:facingMode}, width:{ideal:1920}, height:{ideal:2560}},
-      audio:false
-    });
+    const videoCon={width:{ideal:1920}, height:{ideal:2560}};
+    if(deviceId) videoCon.deviceId={exact:deviceId};
+    else videoCon.facingMode={ideal:facingMode};
+    stream=await navigator.mediaDevices.getUserMedia({video:videoCon, audio:false});
     video.srcObject=stream;
     camError.style.display="none";
     await video.play().catch(()=>{});
+    const cams=await listCams();
+    backCams=cams.filter(c=>c.side==="environment" && c.id);
+    const track=stream.getVideoTracks()[0];
+    zoomCaps=null;
+    if(track && typeof track.getCapabilities==="function"){
+      const caps=track.getCapabilities();
+      if(caps && caps.zoom && typeof caps.zoom.max==="number")
+        zoomCaps={min:caps.zoom.min, max:caps.zoom.max, step:caps.zoom.step||0.1};
+    }
     refreshTrackFeatures();
     if(torchOn && torchAvailable) applyTorch(true);
-    applyZoomPreview();
+    await applyDesiredZoom(false);
   }catch(err){
     camError.style.display="flex";
     camError.textContent="Kamera nicht verfügbar ("+err.name+"). Erlaube den Zugriff und lade neu. iPhone: Safari + HTTPS.";
@@ -678,10 +837,13 @@ async function startCamera(){
 }
 function stopCamera(){
   if(stream){stream.getTracks().forEach(t=>t.stop()); stream=null}
+  video.style.transform="";
 }
 document.getElementById("flip").onclick=()=>{
   facingMode=facingMode==="environment"?"user":"environment";
   torchOn=false;
+  desiredZoom=1;
+  digitalZoom=1;
   saveSettings();
   startCamera();
 };
@@ -753,7 +915,7 @@ async function capture(){
   shootBtn.disabled=true;
 
   try{
-    const zoom=currentZoom();
+    const zoom=digitalZoom||1;
     canvas.width=vw; canvas.height=vh;
     const ctx=canvas.getContext("2d");
     const sw=vw/zoom, sh=vh/zoom;
@@ -784,7 +946,7 @@ async function capture(){
       drawLabelBox(ctx, text, pad, vh-fs-pad*3, fs, kindColor);
     }
 
-    if(pos){
+    if(pos && gpsOnPhoto){
       const gfs=Math.round(vh*0.026);
       const gpad=Math.round(gfs*0.5);
       ctx.font="700 "+gfs+"px -apple-system,Arial,sans-serif";
@@ -1073,6 +1235,10 @@ document.querySelectorAll(".tab").forEach(t=>{
 });
 
 document.addEventListener("keydown", e=>{
+  if(document.getElementById("settings").classList.contains("open")){
+    if(e.key==="Escape") document.getElementById("settings").classList.remove("open");
+    return;
+  }
   if(viewer.classList.contains("active")){
     if(e.key==="ArrowLeft") stepViewer(-1);
     if(e.key==="ArrowRight") stepViewer(1);
@@ -1099,10 +1265,21 @@ document.addEventListener("keydown", e=>{
   }
 });
 
+document.getElementById("settingsBtn").onclick=()=>{
+  gpsPhotoToggle.checked=gpsOnPhoto;
+  document.getElementById("settings").classList.add("open");
+};
+document.getElementById("settingsClose").onclick=()=>document.getElementById("settings").classList.remove("open");
+document.getElementById("settings").onclick=e=>{
+  if(e.target.id==="settings") e.currentTarget.classList.remove("open");
+};
+gpsPhotoToggle.onchange=()=>{ gpsOnPhoto=gpsPhotoToggle.checked; saveSettings(); };
+
 (async function init(){
   loadSettings();
   setKind(currentKind);
   autoIncBtn.classList.toggle("on", autoInc);
+  gpsPhotoToggle.checked=gpsOnPhoto;
   if(!gpsOn) setGpsStatus("","GPS aus");
   try{ await openDB(); }catch(e){ toast("Speicher nicht verfügbar",true); }
   refreshCount();
