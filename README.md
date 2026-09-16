@@ -6,7 +6,7 @@ Kleine Web-App für den Campus-Rundgang. Du fotografierst Leuchten, Steckdosen o
 
 - Kamera-Ansicht ohne Scrollen: Sucher und Bedienung passen auf eine Handy-Seite
 - Foto mit der Handykamera aufnehmen
-- Nummer über ein Zahlenfeld eingeben (öffnet sich direkt beim Tippen). Format wie in der Leuchtenliste: `46.1.3` oder Bereich `46.1.3 - 46.1.7`. Punkt und Bindestrich sind auf dem Zahlenfeld.
+- Nummer über ein Zahlenfeld eingeben (öffnet sich direkt beim Tippen). Format wie in der Leuchtenliste: `46.1.3`, `A1 - A6`, `E1.1`, `VK.1.1`. Punkt, Bindestrich und Buchstaben (ABC) sind auf dem Feld.
 - Nummer wird direkt ins Bild gebrannt
 - Nummer steht auch im Dateinamen, z. B. `GebaeudeA_Leuchte_1-5_20260916_142530.jpg`
 - Umschalten zwischen Leuchte, Steckdose und Verteilung (jeweils eigene Nummer)
@@ -14,6 +14,7 @@ Kleine Web-App für den Campus-Rundgang. Du fotografierst Leuchten, Steckdosen o
 - Auto +1: nach einem Einzelbild +1, nach einem Bereich der nächste Block (1-5 → 6-10)
 - Schnellbereiche 1-3, 1-5, 1-10 und +5
 - Zoom über die echten Kameras des Handys (0,5× / 1× / 2×), soweit verfügbar
+- Einstellung: Standort auf das Foto schreiben ein/aus
 - Einstellung: Kamera und GPS nur einmal freigeben (Zugriff bleibt aktiv, weniger erneute Abfragen). Auf dem iPhone «Erlauben» tippen und die App zum Home-Bildschirm legen.
 - Standort (GPS) pro Foto: Koordinaten werden gespeichert, ins Bild gebrannt und in der Galerie als Karten-Link angezeigt
 - Galerie mit Filter, Teilen, CSV-Liste (Art, Nummer, Ort, GPS) und Löschen

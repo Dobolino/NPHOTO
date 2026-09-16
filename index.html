@@ -173,11 +173,20 @@
     height:46px; border-radius:10px; border:1px solid var(--line);
     background:var(--panel2); color:var(--txt); font-size:22px; font-weight:700;
   }
-  .npGrid button:active, .npLast button:active{background:var(--accent); color:#111}
-  #npDone{
-    height:44px; border-radius:10px; border:0; background:var(--accent);
-    color:#111; font-size:16px; font-weight:800;
+  .npGrid button:active, .npLast button:active, .npLetters button:active{background:var(--accent); color:#111}
+  .npLetters{
+    display:none; grid-template-columns:repeat(7,1fr); gap:4px;
   }
+  #numPad.abc .npGrid{display:none}
+  #numPad.abc .npLetters{display:grid}
+  .npLetters button{
+    height:38px; border-radius:8px; border:1px solid var(--line);
+    background:var(--panel2); color:var(--txt); font-size:16px; font-weight:800;
+  }
+  .npActions{display:flex; gap:6px}
+  .npActions button{flex:1; height:44px; border-radius:10px; font-size:16px; font-weight:800}
+  #npMode{border:1px solid var(--line); background:var(--panel2); color:var(--txt)}
+  #npDone{border:0; background:var(--accent); color:#111}
   #camWrap.pad-open .hudBottom .hudRow,
   #camWrap.pad-open .hudBottom .shootRow{visibility:hidden}
   #camWrap.pad-open .hudBottom{background:transparent}
@@ -185,6 +194,7 @@
   @media (max-height:640px){
     .shoot{width:52px; height:52px}
     .npGrid button, .npLast button{height:40px; font-size:18px}
+    .npLetters button{height:32px; font-size:14px}
   }
 
   /* Galerie */
@@ -335,7 +345,17 @@
           <button data-key="-">−</button>
           <button data-key="back">⌫</button>
         </div>
-        <button id="npDone">Fertig</button>
+        <div class="npLetters" id="npLetters">
+          <button data-key="A">A</button><button data-key="B">B</button><button data-key="C">C</button><button data-key="D">D</button><button data-key="E">E</button><button data-key="F">F</button><button data-key="G">G</button>
+          <button data-key="H">H</button><button data-key="I">I</button><button data-key="J">J</button><button data-key="K">K</button><button data-key="L">L</button><button data-key="M">M</button><button data-key="N">N</button>
+          <button data-key="O">O</button><button data-key="P">P</button><button data-key="Q">Q</button><button data-key="R">R</button><button data-key="S">S</button><button data-key="T">T</button><button data-key="U">U</button>
+          <button data-key="V">V</button><button data-key="W">W</button><button data-key="X">X</button><button data-key="Y">Y</button><button data-key="Z">Z</button>
+          <button data-key=".">.</button><button data-key="-">−</button>
+        </div>
+        <div class="npActions">
+          <button type="button" id="npMode">ABC</button>
+          <button type="button" id="npDone">Fertig</button>
+        </div>
       </div>
     </div>
   </section>
@@ -526,9 +546,13 @@ function loadSettings(){
 
 function splitNum(s){
   s=String(s||"").trim();
-  const m=s.match(/^(?:(\d+(?:\.\d+)*)\.)?(\d+)$/);
+  const m=s.match(/^([A-Za-zÄÖÜäöü]*)(.*)$/);
   if(!m) return null;
-  return {prefix:m[1]!=null?m[1]+".":"", n:parseInt(m[2],10)};
+  const letters=m[1], rest=m[2];
+  if(!rest) return null;
+  const n=rest.match(/^(.*?)(\d+)$/);
+  if(!n) return null;
+  return {prefix:letters+n[1], n:parseInt(n[2],10)};
 }
 function parseLabel(v){
   v=String(v||"").trim();
@@ -604,8 +628,9 @@ function openNumPad(){
 }
 function closeNumPad(){
   camWrap.classList.remove("pad-open");
-  numPad.classList.remove("open");
+  numPad.classList.remove("open","abc");
   numField.classList.remove("editing");
+  document.getElementById("npMode").textContent="ABC";
 }
 function typeNum(key){
   if(key==="back"){
@@ -629,6 +654,10 @@ numPad.querySelectorAll("[data-key]").forEach(b=>{
   b.onclick=()=>typeNum(b.dataset.key);
 });
 document.getElementById("npDone").onclick=closeNumPad;
+document.getElementById("npMode").onclick=()=>{
+  const on=numPad.classList.toggle("abc");
+  document.getElementById("npMode").textContent=on?"123":"ABC";
+};
 document.getElementById("rangeMode").onclick=()=>{
   const p=parseLabel(numInput.value);
   if(!p){ numInput.value="1 - 5"; updateOverlay(); return; }
@@ -1278,6 +1307,7 @@ document.addEventListener("keydown", e=>{
   }
   if(numPad.classList.contains("open")){
     if(e.key>="0" && e.key<="9") { e.preventDefault(); typeNum(e.key); }
+    else if(/^[a-zA-Z]$/.test(e.key)) { e.preventDefault(); typeNum(e.key.toUpperCase()); }
     else if(e.key==="Backspace") { e.preventDefault(); typeNum("back"); }
     else if(e.key==="-" || e.key==="Minus") { e.preventDefault(); typeNum("-"); }
     else if(e.key==="." || e.key==="," || e.key==="Decimal") { e.preventDefault(); typeNum("."); }
