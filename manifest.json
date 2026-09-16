@@ -1,0 +1,18 @@
+{
+  "name": "Leuchten Rundgang",
+  "short_name": "Rundgang",
+  "description": "Fotos von Leuchten und Steckdosen mit Nummer beschriften",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#111418",
+  "theme_color": "#111418",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
