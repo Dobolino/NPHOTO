@@ -199,26 +199,35 @@
 
   /* Galerie */
   .galBar{display:flex; gap:8px; padding:10px 12px; border-bottom:1px solid var(--line);
-    background:var(--panel); flex:none; flex-wrap:wrap}
-  .galBar button{flex:1; min-width:90px; padding:9px; border-radius:10px; border:1px solid var(--line);
+    background:var(--panel); flex:none; flex-wrap:wrap; align-items:center}
+  .galBar button{flex:1; min-width:88px; padding:9px; border-radius:10px; border:1px solid var(--line);
     background:var(--panel2); color:var(--txt); font-size:13px; font-weight:600}
-  .galBar .count{flex:none; align-self:center; color:var(--muted); font-size:12px; padding:0 4px}
-  .filters{display:flex; gap:6px; padding:8px 12px 0; flex:none; overflow-x:auto}
+  .galBar .count{flex:none; color:var(--muted); font-size:12px; padding:0 4px; font-weight:700}
+  .filters{display:flex; gap:6px; padding:10px 12px 0; flex:none; overflow-x:auto}
   .filters button{
     flex:none; padding:6px 12px; border-radius:999px; border:1px solid var(--line);
     background:var(--panel2); color:var(--muted); font-size:12px; font-weight:700;
   }
   .filters button.active{background:var(--accent); color:#111; border-color:var(--accent)}
-  #gallery{padding:12px; display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px;
+  #gallery{padding:12px; display:grid; grid-template-columns:1fr 1fr; gap:12px;
     overflow-y:auto; flex:1; min-height:0; -webkit-overflow-scrolling:touch;
     align-content:start; align-items:start}
-  .card{background:var(--panel2); border:1px solid var(--line); border-radius:12px; overflow:hidden; position:relative; align-self:start; width:100%}
-  .card img{width:100%; aspect-ratio:3/4; object-fit:cover; display:block}
-  .card .meta{padding:6px 8px; font-size:12px}
-  .card .meta b{color:var(--accent)}
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:16px;
+    overflow:hidden; position:relative; width:100%;
+  }
+  .cardPic{position:relative; width:100%; aspect-ratio:3/4; background:#0b0d10; overflow:hidden}
+  .cardPic img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block}
+  .cardNum{
+    position:absolute; left:8px; right:8px; bottom:8px; z-index:1;
+    background:rgba(0,0,0,.62); color:#fff; font-weight:800; font-size:15px;
+    padding:6px 8px; border-radius:10px; border:1px solid rgba(255,204,0,.7);
+    text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .card .meta{padding:8px 10px 10px; font-size:11px}
   .card .meta small{color:var(--muted); display:block}
-  .badge{position:absolute; top:6px; left:6px; background:var(--accent2); color:#fff;
-    font-size:10px; padding:2px 6px; border-radius:6px; font-weight:700}
+  .badge{position:absolute; top:8px; left:8px; z-index:1; background:var(--accent2); color:#fff;
+    font-size:10px; padding:3px 7px; border-radius:8px; font-weight:700}
   .badge.steckdose{background:var(--steck)}
   .badge.verteilung{background:var(--vert); color:#083018}
   .empty{padding:48px 24px; text-align:center; color:var(--muted); font-size:14px}
@@ -338,7 +347,7 @@
   <section class="view" id="galleryView">
     <div class="galBar">
       <span class="count" id="count">0 Fotos</span>
-      <button id="exportAll">Fotos teilen</button>
+      <button id="exportAll">Alle als ZIP</button>
       <button id="exportCsv">Liste.csv</button>
       <button id="clearAll">Alle löschen</button>
     </div>
@@ -978,17 +987,17 @@ function revokeUrls(){
 }
 function recBlob(r){ return r.data instanceof Blob ? r.data : dataURLtoBlob(r.data); }
 function recSrc(r, thumb){
-  const src=thumb && r.thumb ? r.thumb : r.data;
+  const src=thumb && r.thumb && ((r.thumb instanceof Blob && r.thumb.size>100) || typeof r.thumb==="string") ? r.thumb : r.data;
   if(src instanceof Blob) return blobUrl(src);
   return src;
 }
 
-function drawLabelBox(ctx, text, x, y, fs, color){
+function drawLabelBox(ctx, text, x, y, fs, color, minW){
   const pad=Math.round(fs*0.4);
   ctx.font="800 "+fs+"px -apple-system,Arial,sans-serif";
   ctx.textBaseline="top";
-  const tw=ctx.measureText(text).width;
-  ctx.fillStyle="rgba(0,0,0,0.6)";
+  const tw=Math.max(ctx.measureText(text).width, minW||0);
+  ctx.fillStyle="rgba(0,0,0,0.82)";
   roundRect(ctx,x,y,tw+pad*2,fs+pad*2,pad*0.6); ctx.fill();
   ctx.strokeStyle=color; ctx.lineWidth=Math.max(2,fs*0.06);
   roundRect(ctx,x,y,tw+pad*2,fs+pad*2,pad*0.6); ctx.stroke();
@@ -1035,7 +1044,11 @@ function blobToImage(src){
   return new Promise((res,rej)=>{
     const img=new Image();
     const url=src instanceof Blob?URL.createObjectURL(src):src;
-    img.onload=()=>{ if(src instanceof Blob) URL.revokeObjectURL(url); res(img); };
+    img.onload=()=>{
+      const done=()=>{ if(src instanceof Blob) URL.revokeObjectURL(url); res(img); };
+      if(img.decode) img.decode().then(done).catch(done);
+      else done();
+    };
     img.onerror=()=>rej(new Error("bild"));
     img.src=url;
   });
@@ -1046,32 +1059,33 @@ async function applyLabelToRec(rec, newLabel){
   const src=hasOrig?rec.orig:recBlob(rec);
   const img=await blobToImage(src);
   const vw=img.naturalWidth||img.width, vh=img.naturalHeight||img.height;
+  if(!vw||!vh) throw new Error("leer");
   canvas.width=vw; canvas.height=vh;
   const ctx=canvas.getContext("2d");
-  ctx.drawImage(img,0,0);
-  if(!hasOrig){
-    const fs=Math.round(vh*0.055);
-    const pad=Math.round(fs*0.4);
-    ctx.font="800 "+fs+"px -apple-system,Arial,sans-serif";
-    const oldText=(KIND_SHORT[rec.kind]||"X")+" "+(rec.label||"");
-    const coverW=Math.min(vw*0.68, ctx.measureText(oldText).width+pad*6);
-    ctx.fillStyle="#111418";
-    roundRect(ctx, Math.max(0,pad-8), vh-fs-pad*5, coverW, fs+pad*5, pad);
-    ctx.fill();
-  }
+  ctx.drawImage(img,0,0,vw,vh);
+  const kindColor=rec.kind==="Steckdose"?"#8a5cff":rec.kind==="Verteilung"?"#37c871":"#2d7dff";
+  const fs=Math.round(vh*0.055);
+  const pad=Math.round(fs*0.4);
   const pos=rec.lat!=null?{lat:rec.lat, lon:rec.lon, acc:rec.acc}:null;
-  drawOverlays(ctx,vw,vh,{
-    kind:rec.kind,
-    label:newLabel==="ohne"?"":newLabel,
-    ort:hasOrig?(rec.ort||""):"",
-    pos:hasOrig?pos:null
-  });
-  const [blob, thumb]=await Promise.all([canvasToBlob(canvas,0.88), makeThumbBlob()]);
+  if(hasOrig){
+    drawOverlays(ctx,vw,vh,{
+      kind:rec.kind,
+      label:newLabel==="ohne"?"":newLabel,
+      ort:rec.ort||"",
+      pos
+    });
+  }else if(newLabel && newLabel!=="ohne"){
+    ctx.font="800 "+fs+"px -apple-system,Arial,sans-serif";
+    const minW=ctx.measureText((KIND_SHORT[rec.kind]||"X")+" "+newLabel).width;
+    drawLabelBox(ctx, newLabel, pad, vh-fs-pad*3, fs, kindColor, minW);
+  }
+  const blob=await canvasToBlob(canvas,0.88);
+  const thumb=await makeThumbBlob();
   rec.label=newLabel;
   rec.name=fileNameFor(rec.kind, safePart(newLabel,"ohne"), safePart(rec.ort||"",""));
   rec.data=blob;
   rec.thumb=thumb;
-  rec.labelV2=true;
+  rec.labelV3=true;
   await dbAdd(rec);
   const i=cache.findIndex(x=>x.id===rec.id);
   if(i>=0) cache[i]=rec;
@@ -1081,7 +1095,7 @@ async function migrateOldLabels(){
   const all=await dbAll()||[];
   let n=0;
   for(const rec of all){
-    if(rec.labelV2) continue;
+    if(rec.labelV3) continue;
     try{ await applyLabelToRec(rec, rec.label); n++; }
     catch(e){}
   }
@@ -1118,7 +1132,7 @@ async function capture(){
       name:fileNameFor(kind, safePart(label,"ohne"), safePart(ort,"")),
       ts:Date.now(),
       lat:pos?pos.lat:null, lon:pos?pos.lon:null, acc:pos?pos.acc:null,
-      data:blob, thumb, orig, labelV2:true
+      data:blob, thumb, orig, labelV3:true
     };
     await dbAdd(rec);
     flash();
@@ -1201,22 +1215,26 @@ async function loadGallery(){
   for(const r of list){
     const c=document.createElement("div");
     c.className="card";
+    const pic=document.createElement("div");
+    pic.className="cardPic";
     const img=document.createElement("img");
-    img.loading="lazy";
     img.alt=r.kind+" "+r.label;
     img.src=recSrc(r,true);
+    img.onerror=()=>{ if(img.dataset.fb) return; img.dataset.fb="1"; img.src=recSrc(r,false); };
     const badge=document.createElement("span");
     badge.className="badge "+(KIND_CLS[r.kind]||"");
     badge.textContent=r.kind;
+    const num=document.createElement("div");
+    num.className="cardNum";
+    num.textContent=r.label||"–";
+    pic.appendChild(img); pic.appendChild(badge); pic.appendChild(num);
     const meta=document.createElement("div");
     meta.className="meta";
-    const b=document.createElement("b");
-    b.textContent=r.label;
     const small=document.createElement("small");
     small.textContent=fmtDate(r.ts)+(r.ort?" · "+r.ort:"")+(r.lat!=null?" 📍":"");
-    meta.appendChild(b); meta.appendChild(small);
-    c.appendChild(badge); c.appendChild(img); c.appendChild(meta);
-    img.onclick=()=>openViewer(r.id);
+    meta.appendChild(small);
+    c.appendChild(pic); c.appendChild(meta);
+    c.onclick=()=>openViewer(r.id);
     galleryEl.appendChild(c);
   }
   refreshCount();
@@ -1336,16 +1354,93 @@ async function shareRec(r){
   }catch(e){ /* Abbruch ignorieren */ }
 }
 
-document.getElementById("exportAll").onclick=async()=>{
-  const all=(await dbAll()||[]);
-  if(!all.length){toast("Nichts zu laden",true); return}
-  if(navigator.canShare){
-    const files=all.map(r=>new File([recBlob(r)],r.name,{type:"image/jpeg"}));
-    if(navigator.canShare({files})){
-      try{ await navigator.share({files,title:"Rundgang Fotos"}); return; }catch(e){ if(e.name==="AbortError") return; }
-    }
+function concatBytes(parts){
+  const len=parts.reduce((n,p)=>n+p.length,0);
+  const out=new Uint8Array(len);
+  let o=0;
+  for(const p of parts){ out.set(p,o); o+=p.length; }
+  return out;
+}
+function u16(n){ return new Uint8Array([n&255,(n>>>8)&255]); }
+function u32(n){ return new Uint8Array([n&255,(n>>>8)&255,(n>>>16)&255,(n>>>24)&255]); }
+const CRC_TABLE=(function(){
+  const t=new Uint32Array(256);
+  for(let n=0;n<256;n++){
+    let c=n;
+    for(let k=0;k<8;k++) c=c&1 ? (0xedb88320^(c>>>1)) : (c>>>1);
+    t[n]=c>>>0;
   }
-  for(const r of all){ downloadRec(r); await new Promise(res=>setTimeout(res,350)); }
+  return t;
+})();
+function crc32(data){
+  let c=~0>>>0;
+  for(let i=0;i<data.length;i++) c=CRC_TABLE[(c^data[i])&255]^(c>>>8);
+  return (~c)>>>0;
+}
+async function zipJpegs(recs){
+  const enc=new TextEncoder();
+  const now=new Date();
+  const dosTime=(now.getHours()<<11)|(now.getMinutes()<<5)|((now.getSeconds()/2)|0);
+  const dosDate=((now.getFullYear()-1980)<<9)|((now.getMonth()+1)<<5)|now.getDate();
+  const locals=[], centrals=[];
+  let offset=0;
+  let i=0;
+  const used={};
+  for(const r of recs){
+    i++;
+    if(i%8===0) await new Promise(res=>setTimeout(res,0));
+    let name=String(r.name||"foto.jpg").replace(/[^\w.\-ÄÖÜäöü]+/g,"_");
+    if(!/\.jpe?g$/i.test(name)) name+=".jpg";
+    if(used[name]) { const i=name.lastIndexOf("."); name=name.slice(0,i)+"_"+used[name]+name.slice(i); }
+    used[name]=(used[name]||0)+1;
+    const blob=recBlob(r);
+    const data=new Uint8Array(await blob.arrayBuffer());
+    const nameB=enc.encode(name);
+    const crc=crc32(data);
+    const local=concatBytes([
+      new Uint8Array([0x50,0x4b,0x03,0x04]),
+      u16(20), u16(0), u16(0), u16(dosTime), u16(dosDate),
+      u32(crc), u32(data.length), u32(data.length),
+      u16(nameB.length), u16(0), nameB, data
+    ]);
+    locals.push(local);
+    centrals.push(concatBytes([
+      new Uint8Array([0x50,0x4b,0x01,0x02]),
+      u16(20), u16(20), u16(0), u16(0), u16(dosTime), u16(dosDate),
+      u32(crc), u32(data.length), u32(data.length),
+      u16(nameB.length), u16(0), u16(0), u16(0), u16(0), u32(0),
+      u32(offset), nameB
+    ]));
+    offset+=local.length;
+  }
+  const central=concatBytes(centrals);
+  const end=concatBytes([
+    new Uint8Array([0x50,0x4b,0x05,0x06]),
+    u16(0), u16(0), u16(recs.length), u16(recs.length),
+    u32(central.length), u32(offset), u16(0)
+  ]);
+  return new Blob([concatBytes(locals), central, end], {type:"application/zip"});
+}
+
+document.getElementById("exportAll").onclick=async()=>{
+  const all=(await dbAll()||[]).sort((a,b)=>a.ts-b.ts);
+  if(!all.length){toast("Nichts zu laden",true); return}
+  toast("Packe "+all.length+" Fotos…");
+  let zip;
+  try{ zip=await zipJpegs(all); }
+  catch(e){ toast("ZIP fehlgeschlagen",true); return; }
+  const zipName="Rundgang_"+timeStamp()+".zip";
+  const file=new File([zip],zipName,{type:"application/zip"});
+  try{
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      await navigator.share({files:[file],title:zipName});
+      return;
+    }
+  }catch(e){ if(e&&e.name==="AbortError") return; }
+  const a=document.createElement("a");
+  a.href=blobUrl(zip); a.download=zipName;
+  document.body.appendChild(a); a.click(); a.remove();
+  toast(all.length+" Fotos in ZIP");
 };
 
 function csvCell(v){
