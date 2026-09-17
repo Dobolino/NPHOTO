@@ -41,4 +41,4 @@ Kleine Web-App für den Campus-Rundgang. Du fotografierst Leuchten, Steckdosen o
 
 - Für GPS musst du den Standortzugriff im Browser erlauben. Der erste Fix im Freien dauert wenige Sekunden, drinnen ist er ungenauer.
 - Die Fotos liegen nur lokal im Browser. Lösche die Browserdaten nicht, bevor du sie exportiert hast.
-- Zum Sichern: in der Galerie "Fotos teilen" oder "Liste.csv" nutzen.
+- Zum Sichern: in der Galerie **Alle als ZIP** oder **Liste.csv** nutzen.
