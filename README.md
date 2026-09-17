@@ -19,6 +19,7 @@ Kleine Web-App für den Campus-Rundgang. Du fotografierst Leuchten, Steckdosen o
 - Standort (GPS) pro Foto: Koordinaten werden gespeichert, ins Bild gebrannt und in der Galerie als Karten-Link angezeigt
 - Galerie mit Filter, Teilen, CSV-Liste (Art, Nummer, Ort, GPS) und Löschen
 - Nummer nachträglich am Foto ändern (Galerie → Foto → Nummer)
+- Bereits gespeicherte Fotos mit unbearbeitetem Original werden nach einem App-Update einmalig mit der aktuellen Nummernbeschriftung neu erzeugt. Nummer, Aufnahmezeit und Standortdaten bleiben erhalten.
 - Einstellungen bleiben erhalten (Nummer, Art, Ort, GPS, Auto +1)
 - Offline als PWA (IndexedDB, Service Worker)
 
@@ -41,4 +42,5 @@ Kleine Web-App für den Campus-Rundgang. Du fotografierst Leuchten, Steckdosen o
 
 - Für GPS musst du den Standortzugriff im Browser erlauben. Der erste Fix im Freien dauert wenige Sekunden, drinnen ist er ungenauer.
 - Die Fotos liegen nur lokal im Browser. Lösche die Browserdaten nicht, bevor du sie exportiert hast.
+- Bei sehr alten Fotos ohne gespeichertes Original ist der frühere Kasten bereits Teil der JPEG-Datei. Die verdeckten Bilddetails lassen sich daraus nicht wiederherstellen; diese Fotos werden bei der Aktualisierung nicht verändert.
 - Zum Sichern: in der Galerie **Alle als ZIP** oder **Liste.csv** nutzen.
