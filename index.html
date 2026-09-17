@@ -508,8 +508,8 @@ function toast(msg,isErr){
   toast._t=setTimeout(()=>toastEl.classList.remove("show"),1800);
 }
 function pad(n){return String(n).length<2?"0"+n:String(n)}
-function timeStamp(){
-  const d=new Date();
+function timeStamp(ts){
+  const d=new Date(ts==null?Date.now():ts);
   return d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+"_"+pad(d.getHours())+pad(d.getMinutes())+pad(d.getSeconds());
 }
 function safePart(v, fallback){
@@ -517,10 +517,10 @@ function safePart(v, fallback){
   if(!v) return fallback;
   return v.replace(/[^0-9A-Za-zÄÖÜäöü.\- ]/g,"").replace(/\s+/g,"-") || fallback;
 }
-function fileNameFor(kind,label,ort){
+function fileNameFor(kind,label,ort,ts){
   const parts=[];
   if(ort) parts.push(ort);
-  parts.push(kind, label, timeStamp());
+  parts.push(kind, label, timeStamp(ts));
   return parts.join("_")+".jpg";
 }
 function haptic(ms){ if(navigator.vibrate) navigator.vibrate(ms||25); }
@@ -682,8 +682,8 @@ document.getElementById("npDone").onclick=async()=>{
       try{
         await applyLabelToRec(r, padGet());
         toast("Nummer geändert: "+r.label);
+        await loadGallery();
         openViewer(r.id);
-        loadGallery();
       }catch(e){
         toast("Ändern fehlgeschlagen",true);
       }
@@ -1062,7 +1062,9 @@ async function applyLabelToRec(rec, newLabel){
   const kindColor=rec.kind==="Steckdose"?"#8a5cff":rec.kind==="Verteilung"?"#37c871":"#2d7dff";
   const fs=Math.round(vh*0.055);
   const pad=Math.round(fs*0.4);
-  const pos=rec.lat!=null?{lat:rec.lat, lon:rec.lon, acc:rec.acc}:null;
+  // Alte Datensätze ohne diese Angabe bekommen beim Neuzeichnen kein GPS ins Bild.
+  const pos=rec.gpsOnPhoto===true && rec.lat!=null
+    ?{lat:rec.lat, lon:rec.lon, acc:rec.acc}:null;
   if(hasOrig){
     drawOverlays(ctx,vw,vh,{
       kind:rec.kind,
@@ -1081,11 +1083,13 @@ async function applyLabelToRec(rec, newLabel){
   }
   const blob=await canvasToBlob(canvas,0.88);
   const thumb=await makeThumbBlob();
+  if(rec.label!==newLabel)
+    rec.name=fileNameFor(rec.kind, safePart(newLabel,"ohne"), safePart(rec.ort||"",""), rec.ts);
   rec.label=newLabel;
-  rec.name=fileNameFor(rec.kind, safePart(newLabel,"ohne"), safePart(rec.ort||"",""));
   rec.data=blob;
   rec.thumb=thumb;
   rec.labelV3=true;
+  rec.labelV4=true;
   await dbAdd(rec);
   const i=cache.findIndex(x=>x.id===rec.id);
   if(i>=0) cache[i]=rec;
@@ -1095,7 +1099,8 @@ async function migrateOldLabels(){
   const all=await dbAll()||[];
   let n=0;
   for(const rec of all){
-    if(rec.labelV3) continue;
+    // Nur mit unbearbeitetem Original kann ein alter Kasten entfernt werden.
+    if(!rec.orig || rec.labelV4) continue;
     try{ await applyLabelToRec(rec, rec.label); n++; }
     catch(e){}
   }
@@ -1132,7 +1137,8 @@ async function capture(){
       name:fileNameFor(kind, safePart(label,"ohne"), safePart(ort,"")),
       ts:Date.now(),
       lat:pos?pos.lat:null, lon:pos?pos.lon:null, acc:pos?pos.acc:null,
-      data:blob, thumb, orig, labelV3:true
+      data:blob, thumb, orig, gpsOnPhoto:gpsOnPhoto && !!pos,
+      labelV3:true, labelV4:true
     };
     await dbAdd(rec);
     flash();
@@ -1385,14 +1391,18 @@ async function zipJpegs(recs){
   const locals=[], centrals=[];
   let offset=0;
   let i=0;
-  const used={};
+    const used=new Set();
   for(const r of recs){
     i++;
     if(i%8===0) await new Promise(res=>setTimeout(res,0));
     let name=String(r.name||"foto.jpg").replace(/[^\w.\-ÄÖÜäöü]+/g,"_");
     if(!/\.jpe?g$/i.test(name)) name+=".jpg";
-    if(used[name]) { const i=name.lastIndexOf("."); name=name.slice(0,i)+"_"+used[name]+name.slice(i); }
-    used[name]=(used[name]||0)+1;
+    const originalName=name;
+    const dot=originalName.lastIndexOf(".");
+    const stem=dot<0?originalName:originalName.slice(0,dot);
+    const ext=dot<0?"":originalName.slice(dot);
+    for(let suffix=1; used.has(name); suffix++) name=stem+"_"+suffix+ext;
+    used.add(name);
     const blob=recBlob(r);
     const data=new Uint8Array(await blob.arrayBuffer());
     const nameB=enc.encode(name);
