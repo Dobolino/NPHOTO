@@ -680,8 +680,10 @@ document.getElementById("npDone").onclick=async()=>{
     const r=cache.find(x=>x.id===currentId);
     if(r){
       try{
+        const hadOrig=!!r.orig;
         await applyLabelToRec(r, padGet());
-        toast("Nummer geändert: "+r.label);
+        toast(hadOrig?("Nummer geändert: "+r.label)
+                     :("Nummer/Name geändert: "+r.label+" (Bild bleibt)"), !hadOrig);
         await loadGallery();
         openViewer(r.id);
       }catch(e){
@@ -1051,43 +1053,33 @@ function blobToImage(src){
 }
 async function applyLabelToRec(rec, newLabel){
   newLabel=String(newLabel||"").trim()||"ohne";
-  const hasOrig=!!rec.orig;
-  const src=hasOrig?rec.orig:recBlob(rec);
-  const img=await blobToImage(src);
-  const vw=img.naturalWidth||img.width, vh=img.naturalHeight||img.height;
-  if(!vw||!vh) throw new Error("leer");
-  canvas.width=vw; canvas.height=vh;
-  const ctx=canvas.getContext("2d");
-  ctx.drawImage(img,0,0,vw,vh);
-  const kindColor=rec.kind==="Steckdose"?"#8a5cff":rec.kind==="Verteilung"?"#37c871":"#2d7dff";
-  const fs=Math.round(vh*0.055);
-  const pad=Math.round(fs*0.4);
-  // Alte Datensätze ohne diese Angabe bekommen beim Neuzeichnen kein GPS ins Bild.
-  const pos=rec.gpsOnPhoto===true && rec.lat!=null
-    ?{lat:rec.lat, lon:rec.lon, acc:rec.acc}:null;
-  if(hasOrig){
-    drawOverlays(ctx,vw,vh,{
-      kind:rec.kind,
-      label:newLabel==="ohne"?"":newLabel,
-      ort:rec.ort||"",
-      pos
-    });
-  }else if(newLabel && newLabel!=="ohne"){
-    // Kein Original vorhanden: alten Nummernbereich zuerst zudecken,
-    // damit kein grauer Rest-Kasten stehen bleibt.
-    const boxY=vh-fs-pad*3, boxH=fs+pad*2;
-    const coverW=Math.min(vw-pad*2, Math.max(vw*0.6, fs*8));
-    ctx.fillStyle="rgba(0,0,0,0.82)";
-    roundRect(ctx, pad, boxY, coverW, boxH, pad*0.6); ctx.fill();
-    drawLabelBox(ctx, newLabel, pad, boxY, fs, kindColor);
-  }
-  const blob=await canvasToBlob(canvas,0.88);
-  const thumb=await makeThumbBlob();
   if(rec.label!==newLabel)
     rec.name=fileNameFor(rec.kind, safePart(newLabel,"ohne"), safePart(rec.ort||"",""), rec.ts);
   rec.label=newLabel;
-  rec.data=blob;
-  rec.thumb=thumb;
+  // Nur mit sauberem Original neu zeichnen. So entsteht genau ein Kasten,
+  // nie ein Abdeck-Kasten darunter.
+  if(rec.orig){
+    const img=await blobToImage(rec.orig);
+    const vw=img.naturalWidth||img.width, vh=img.naturalHeight||img.height;
+    if(vw&&vh){
+      canvas.width=vw; canvas.height=vh;
+      const ctx=canvas.getContext("2d");
+      ctx.drawImage(img,0,0,vw,vh);
+      // Alte Datensätze ohne diese Angabe bekommen kein GPS ins Bild.
+      const pos=rec.gpsOnPhoto===true && rec.lat!=null
+        ?{lat:rec.lat, lon:rec.lon, acc:rec.acc}:null;
+      drawOverlays(ctx,vw,vh,{
+        kind:rec.kind,
+        label:newLabel==="ohne"?"":newLabel,
+        ort:rec.ort||"",
+        pos
+      });
+      rec.data=await canvasToBlob(canvas,0.88);
+      rec.thumb=await makeThumbBlob();
+    }
+  }
+  // Ohne Original: eingebranntes Bild bleibt unverändert, nur Nummer,
+  // Dateiname und Liste ändern sich (kein Überstempeln, kein zweiter Kasten).
   rec.labelV3=true;
   rec.labelV4=true;
   await dbAdd(rec);
